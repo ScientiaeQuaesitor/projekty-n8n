@@ -1,0 +1,34 @@
+UMOWA O ŚWIADCZENIE USŁUG INFORMATYCZNYCH nr {{SYGNATURA|UI/2025/04/017}}
+
+zawarta w dniu 14 kwietnia 2025 r. w {{MIEJSCE|Poznaniu}} pomiędzy:
+
+{{FIRMA|Naleśniki Babci Zosi Sp. z o.o.}} z siedzibą w {{MIEJSCE|Poznaniu}} przy {{ADRES|ul. Garbary 64/2, 61-758 Poznań}}, wpisaną do rejestru przedsiębiorców Krajowego Rejestru Sądowego prowadzonego przez {{FIRMA|Sąd Rejonowy Poznań – Nowe Miasto i Wilda w Poznaniu}} pod numerem KRS {{KRS|@1}}, NIP: {{NIP|@1:d}}, REGON: {{REGON|@1}}, reprezentowaną przez {{OSOBA|Zofię Wilk}}, Prezesa Zarządu, zwaną dalej „Zamawiającym”,
+
+a
+
+{{FIRMA|Kodmistrz Spółka Akcyjna}} z siedzibą we {{MIEJSCE|Wrocławiu}}, {{ADRES|al. Marszałka Józefa Piłsudskiego 12, 50-044 Wrocław}}, KRS {{KRS|@2}}, NIP {{NIP|@2}}, reprezentowaną przez {{OSOBA|Tomasza Kowala}} oraz {{OSOBA|Agnieszkę Nowak-Jeziorańską}}, członków zarządu, zwaną dalej „Wykonawcą”.
+
+§ 1. Przedmiot umowy
+
+1. Wykonawca zobowiązuje się wdrożyć u Zamawiającego system {{NAZWA|Orion ERP}} wraz z modułem sprzedaży internetowej {{NAZWA|SmakSklep}}.
+2. Prace będą prowadzone w ramach projektu o roboczej nazwie {{NAZWA|Feniks}}. Kierownikiem projektu po stronie Wykonawcy jest {{OSOBA|Agnieszka Nowak-Jeziorańska}}, a po stronie Zamawiającego pan {{OSOBA|Marek Zieliński}}.
+3. Spółka {{FIRMA|Naleśniki Babci Zosi}} oświadcza, że posiada licencje na oprogramowanie dostarczone wcześniej przez firmę {{FIRMA|Budimpex}}.
+
+§ 2. Wynagrodzenie
+
+1. Za wykonanie przedmiotu umowy {{FIRMA|Kodmistrz}} otrzyma wynagrodzenie w kwocie 184 500,00 zł netto.
+2. Płatność nastąpi przelewem na rachunek Wykonawcy nr {{IBAN|@1}} w terminie 14 dni od doręczenia faktury.
+3. Faktury należy przesyłać na adres {{EMAIL|faktury@nalesnikibabcizosi.pl}}.
+
+§ 3. Osoby kontaktowe
+
+1. Zamawiający: {{OSOBA|Marek Zieliński}}, tel. {{TELEFON|+48 601 234 567}}, e-mail: {{EMAIL|m.zielinski@nalesnikibabcizosi.pl}}.
+2. Wykonawca: {{OSOBA|A. Nowak-Jeziorańska}}, tel. {{TELEFON|71 345 67 89}}, e-mail: {{EMAIL|agnieszka.nowak@kodmistrz.example}}.
+3. O każdej zmianie osób kontaktowych strony poinformują się pisemnie. Zmiana ta nie wymaga aneksu.
+
+§ 4. Poufność
+
+Wykonawca nie ujawni informacji uzyskanych od {{FIRMA|Naleśników Babci Zosi}}, w szczególności receptur oraz danych kontrahentów, takich jak {{FIRMA|Hurtownia Mleczna Kowalscy s.c.}} Obowiązek ten wiąże także podwykonawcę, pana {{OSOBA|Hansa Müllera}}.
+
+Zamawiający: {{OSOBA|ZOFIA WILK}}
+Wykonawca: {{OSOBA|TOMASZ KOWAL}}, {{OSOBA|AGNIESZKA NOWAK-JEZIORAŃSKA}}

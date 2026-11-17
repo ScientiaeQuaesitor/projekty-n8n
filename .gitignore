@@ -1,0 +1,17 @@
+# Prawdziwe dane: nigdy w repozytorium
+serwis/testy/prawdziwe/
+serwis/dane/
+n8n/
+# Dowiązanie do training-mateusz/shared/anonimizacja (dokumenty v1)
+dokumenty
+
+# Sekrety
+.env
+*.env
+
+# Pamięć podręczna pomiarów (odtwarzalna, duża)
+serwis/testy/wyniki/cache_*.json
+
+# Python
+__pycache__/
+*.pyc

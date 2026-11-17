@@ -1,0 +1,30 @@
+AKT NOTARIALNY
+
+Dnia {{ZOSTAW|trzydziestego grudnia}}, roku dwa tysiące dwudziestego piątego ({{ZOSTAW|30.12.2025 r.}}), przed notariuszem {{OSOBA|Hanną Wróblewską}}, w {{ZOSTAW|Kancelarii Notarialnej}} we {{MIEJSCE|Wrocławiu}} przy {{ADRES|ulicy Ruskiej 41/3}}, stawili się:
+
+1. {{OSOBA|Romana Bielecka}}, córka {{OSOBA|Stanisława}} i {{OSOBA|Haliny}}, PESEL {{PESEL|@5}}, legitymująca się dowodem osobistym serii i numer: {{DOWOD|@3}}, zamieszkała według oświadczenia i podająca adres do korespondencji: {{ADRES|52-131 Wrocław}}, {{ADRES|ul. Konduktorska 18/4}},
+2. {{OSOBA|Jakub Maksymilian}} (drugie imię) {{OSOBA|Sroczyński}}, syn {{OSOBA|Zdzisława}} i {{OSOBA|Bożeny}}, PESEL {{PESEL|@6}}, legitymujący się dowodem osobistym serii i numer: {{DOWOD|@4}}, zamieszkały według oświadczenia i podający adres do korespondencji: {{ADRES|32-600 Oświęcim}}, {{ADRES|ul. Dąbrowskiego 7}}.
+
+Ad 1 zwana dalej także „{{ZOSTAW|Strona Sprzedająca}}”, Ad 2 zwany dalej także „{{ZOSTAW|Strona Kupująca}}”.
+
+Tożsamość {{ZOSTAW|Stawających}} notariusz ustaliła na podstawie dowodów osobistych, a {{ZOSTAW|Stawający}} oświadczają, że w stosunku do nich nie zachodzą okoliczności wymienione w {{ZOSTAW|art. 46 ust. 1 pkt 1-5}} {{ZOSTAW|ustawy z dnia 6 sierpnia 2010 r. o dowodach osobistych}} ({{ZOSTAW|Dz.U. 2022 r. poz. 671}}). Notariusz poinformowała Stawających o treści art. 6 ust. 1 lit. c rozporządzenia {{ZOSTAW|Parlamentu Europejskiego i Rady}} (UE) 2016/679 z dnia 27 kwietnia 2016 r. {{ZOSTAW|w sprawie ochrony osób fizycznych w związku z przetwarzaniem danych osobowych}} (ogólne {{ZOSTAW|rozporządzenie o ochronie danych osobowych}}).
+
+UMOWA SPRZEDAŻY
+
+§ 1.
+
+{{OSOBA|Romana Bielecka}} oświadcza, że:
+1. Na podstawie umowy sprzedaży zawartej w akcie notarialnym z dnia 3 września 2019 r., {{ZOSTAW|Repertorium A}} numer {{SYGNATURA|4521/2019}}, sporządzonym w {{ZOSTAW|Kancelarii Notarialnej}} w {{MIEJSCE|Oławie}} przed notariuszem {{OSOBA|Tadeuszem Rakiem}}, jest właścicielką lokalu mieszkalnego {{ZOSTAW|numer 8 (osiem)}}, położonego we {{MIEJSCE|Wrocławiu}} przy {{ADRES|ulicy Opolskiej 23}}, dla którego {{FIRMA|Sąd Rejonowy dla Wrocławia-Krzyków}}, IV Wydział Ksiąg Wieczystych, prowadzi księgę wieczystą numer {{SYGNATURA|WR1K/00123456/7}} (dalej także „{{ZOSTAW|Lokal Mieszkalny}}”).
+2. Z własnością lokalu łączy się udział wynoszący {{ZOSTAW|95/10000}} w nieruchomości wspólnej, objętej księgą wieczystą numer {{SYGNATURA|WR1K/00098765/2}}, prowadzoną dla działki gruntu numer {{SYGNATURA|14/3}} (dalej także „{{ZOSTAW|Nieruchomość Wspólna}}”).
+3. W dziale IV księgi wieczystej wpisana jest hipoteka umowna do kwoty {{ZOSTAW|525.000,00}} zł ({{ZOSTAW|pięćset dwadzieścia pięć tysięcy złotych}}), ustanowiona na rzecz {{FIRMA|Dolnośląskiego Banku Hipotecznego S.A.}} z siedzibą w {{MIEJSCE|Legnicy}}, KRS {{KRS|@4}}, REGON {{REGON|@4}} (dalej także „{{ZOSTAW|Bank}}”).
+4. Lokalowi przysługuje prawo do wyłącznego korzystania z miejsca postojowego oznaczonego na {{ZOSTAW|załączniku numer 2}} do aktu notarialnego stanowiącego podstawę wpisu.
+5. {{ZOSTAW|Lokal Mieszkalny}} nie jest obciążony prawami osób trzecich, w szczególności roszczeniami, o których mowa w art. 59 {{ZOSTAW|Kodeksu cywilnego}}.
+6. {{ZOSTAW|Rada Miejska}} {{MIEJSCE|Wrocławia}} podjęła {{ZOSTAW|Uchwałę}} nr {{SYGNATURA|XXXV/780/21}} w sprawie wyznaczenia obszaru zdegradowanego i obszaru rewitalizacji (obszary obejmują osiedla: {{MIEJSCE|Nadodrze}} i {{MIEJSCE|Kleczków}}), na podstawie art. 8 {{ZOSTAW|ustawy o rewitalizacji}}. {{ZOSTAW|Nieruchomość Wspólna}} nie znajduje się na tym obszarze ani na obszarze {{ZOSTAW|Specjalnej Strefy Ekonomicznej}}.
+
+§ 2.
+
+Strony do niniejszego aktu przedłożyły wydruk z {{ZOSTAW|Portalu Podsystemu Dostępu do Bazy Danych Ksiąg Wieczystych}} dla księgi wieczystej numer {{SYGNATURA|WR1K/00123456/7}} z dnia {{ZOSTAW|30 grudnia 2025 roku}}.
+
+§ 3.
+
+{{OSOBA|Romana Bielecka}} sprzedaje {{OSOBA|Jakubowi Sroczyńskiemu}} opisany wyżej {{ZOSTAW|Lokal Mieszkalny}} za cenę {{ZOSTAW|612.000,00}} zł, a {{OSOBA|Jakub Sroczyński}} oświadcza, że lokal ten kupuje. Pani {{OSOBA|Bielecka}} potwierdza, że cenę otrzymała przelewem na rachunek numer {{IBAN|@6}}.

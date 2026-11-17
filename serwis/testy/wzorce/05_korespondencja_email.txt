@@ -1,0 +1,38 @@
+Od: {{OSOBA|Grzegorz Mazur}} <{{EMAIL|g.mazur@transmazur.example}}>
+Do: {{OSOBA|Sylwia Krawczyk}} <{{EMAIL|sylwia.krawczyk@zielonapaczka.example}}>
+DW: {{EMAIL|dyspozycja@transmazur.example}}
+Temat: RE: reklamacja uszkodzonej dostawy, zlecenie {{SYGNATURA|ZL-2025-00871}}
+
+Dzień dobry Pani {{OSOBA|Sylwio}},
+
+dziękuję za przesłanie zdjęć. Rozmawiałem dziś z kierowcą, panem {{OSOBA|Zbigniewem Kaczmarkiem}}, i potwierdzam, że do uszkodzenia palety doszło podczas przeładunku w naszym magazynie w {{MIEJSCE|Strykowie}}. Bierzemy to na siebie.
+
+Proponuję takie rozwiązanie:
+1. {{FIRMA|Trans-Mazur}} pokrywa wartość uszkodzonego towaru według Państwa faktury, czyli 6 240 zł netto.
+2. Notę obciążeniową proszę wystawić na: {{FIRMA|Trans-Mazur Grzegorz Mazur i Wspólnicy sp.j.}}, {{ADRES|ul. Smolice 1F, 95-010 Stryków}}, NIP {{NIP|@5}}.
+3. Zwrot środków zrobimy na konto, z którego przyszła zapłata za fracht. Dla pewności proszę o potwierdzenie, czy to nadal {{IBAN|@4}}.
+
+Przy okazji: od czerwca Państwa trasy do {{MIEJSCE|Trójmiasta}} przejmuje nowy dyspozytor, {{OSOBA|Kuba Olszewski}}. {{OSOBA|Kubę}} najłatwiej złapać pod numerem {{TELEFON|(42) 719 30 15}} albo na komórce {{TELEFON|694 300 112}}.
+
+Pozdrawiam
+{{OSOBA|Grzegorz Mazur}}
+{{FIRMA|Trans-Mazur}}
+tel. {{TELEFON|+48 42 719 30 00}}
+
+---
+
+W dniu 20.05.2025 o 14:12 {{OSOBA|Sylwia Krawczyk}} napisała:
+
+Panie {{OSOBA|Grzegorzu}},
+
+w załączniku zdjęcia palety nr 3 z dostawy do naszego sklepu przy {{ADRES|ul. Świętego Marcina 40 w Poznaniu}}. Zniszczonych jest 26 kartonów doniczek ceramicznych serii {{NAZWA|Liść Monstery}}. Kierowca odmówił wpisania uwag do listu przewozowego, co uważam za niedopuszczalne. Pan {{OSOBA|Kaczmarek}} twierdził, że „tak mu kazała dyspozycja”.
+
+Jeśli sprawa nie zostanie załatwiona do końca tygodnia, zgłoszę szkodę bezpośrednio do Państwa ubezpieczyciela ({{FIRMA|TUiR Polonia}}, polisa nr {{SYGNATURA|OCP/778/2025}}) i poproszę naszego prawnika, mecenasa {{OSOBA|Leszka Wójcika}}, o przygotowanie wezwania.
+
+Nasz dział księgowości ({{OSOBA|Dorota Kubiak}}, {{EMAIL|ksiegowosc@zielonapaczka.example}}) czeka na informację, na kogo wystawić notę.
+
+{{OSOBA|Sylwia Krawczyk}}
+Kierownik ds. logistyki
+{{FIRMA|Zielona Paczka sp. z o.o.}}
+{{ADRES|ul. Głogowska 218, 60-104 Poznań}}
+kom. {{TELEFON|783 455 019}}

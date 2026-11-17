@@ -1,0 +1,9 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+regex==2024.11.6
+spacy==3.8.4
+pl_core_news_lg @ https://github.com/explosion/spacy-models/releases/download/pl_core_news_lg-3.8.0/pl_core_news_lg-3.8.0-py3-none-any.whl
+transformers==4.48.0
+morfeusz2==1.99.15
+easyocr==1.7.2

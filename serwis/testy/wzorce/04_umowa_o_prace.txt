@@ -1,0 +1,41 @@
+UMOWA O PRACĘ NA CZAS NIEOKREŚLONY
+
+zawarta w dniu 2 stycznia 2025 r. w {{MIEJSCE|Lublinie}} pomiędzy:
+
+{{FIRMA|Przedsiębiorstwem Produkcyjno-Handlowym „Orzeł” Spółka z ograniczoną odpowiedzialnością}} z siedzibą w {{MIEJSCE|Lublinie}}, {{ADRES|ul. Mełgiewska 30, 20-234 Lublin}}, NIP {{NIP|@4:d}}, REGON {{REGON|@2}}, reprezentowanym przez Dyrektora ds. Personalnych, panią {{OSOBA|Bożenę Górską}}, zwanym dalej „Pracodawcą”,
+
+a
+
+panem {{OSOBA|Adamem Szczepaniakiem}}, synem {{OSOBA|Stanisława}} i {{OSOBA|Haliny}}, urodzonym 17 lipca 1988 r. w {{MIEJSCE|Zamościu}}, zamieszkałym w {{MIEJSCE|Świdniku}} przy {{ADRES|ul. Lotników Polskich 5/21, 21-040 Świdnik}}, PESEL: {{PESEL|@2}}, legitymującym się dowodem osobistym serii i numerze {{DOWOD|@2:c}}, zwanym dalej „Pracownikiem”.
+
+§ 1
+
+1. Pracodawca zatrudnia Pracownika na stanowisku starszego technologa w Dziale Rozwoju Produktu.
+2. Miejscem wykonywania pracy jest zakład Pracodawcy w {{MIEJSCE|Lublinie}} oraz, w wymiarze nie większym niż 4 dni w miesiącu, oddział w {{MIEJSCE|Kraśniku}}.
+3. Bezpośrednim przełożonym Pracownika jest kierownik działu, dr inż. {{OSOBA|Wojciech Pietrzak}}.
+
+§ 2
+
+1. Pracownik otrzymuje wynagrodzenie zasadnicze w wysokości 11 400,00 zł brutto miesięcznie.
+2. Wynagrodzenie jest płatne do 10. dnia następnego miesiąca na rachunek bankowy Pracownika: {{IBAN|@3:c}}.
+3. Pracownik przystępuje do Pracowniczych Planów Kapitałowych prowadzonych przez {{FIRMA|TFI Sokół}}.
+
+§ 3
+
+1. Pracownik zobowiązuje się do zachowania w tajemnicy informacji dotyczących technologii {{NAZWA|TermoLak 2}}, również po ustaniu stosunku pracy.
+2. Przez 12 miesięcy po rozwiązaniu umowy Pracownik nie podejmie pracy u podmiotów konkurencyjnych, w szczególności w spółkach {{FIRMA|Lakma}} oraz {{FIRMA|Farby Kujawskie S.A.}}
+
+§ 4
+
+1. Pracownik oświadcza, że poprzednio był zatrudniony w {{FIRMA|Zakładach Chemicznych „Wisła” S.A.}} w {{MIEJSCE|Puławach}} i nie wiąże go zakaz konkurencji.
+2. Osobą upoważnioną do kontaktu w nagłych wypadkach jest żona Pracownika, {{OSOBA|Joanna Szczepaniak}}, tel. {{TELEFON|609 771 204}}.
+3. Korespondencję służbową Pracownik będzie otrzymywał na adres {{EMAIL|adam.szczepaniak@pph-orzel.example}}.
+
+§ 5
+
+W sprawach nieuregulowanych stosuje się przepisy Kodeksu pracy. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach.
+
+Pracodawca: {{OSOBA|Bożena Górska}}
+Pracownik: {{OSOBA|Adam Szczepaniak}}
+
+Potwierdzam odbiór informacji o warunkach zatrudnienia oraz zapoznanie się z regulaminem pracy {{FIRMA|PPH „Orzeł”}}. {{OSOBA|A. Szczepaniak}}

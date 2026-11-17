@@ -1,0 +1,31 @@
+Notatka ze spotkania statusowego projektu {{NAZWA|Bursztyn}}
+
+Data: 9 maja 2025 r., godz. 10:00, sala konferencyjna na 3. piętrze
+Obecni: {{OSOBA|Katarzyna Lis}}, {{OSOBA|Paweł Kozioł}}, {{OSOBA|Marta Sikora}}, {{OSOBA|Michał Dudek}} (zdalnie), ze strony klienta: {{OSOBA|Ewa Marczak}} i {{OSOBA|Robert Gołąb}} ({{FIRMA|Aptekarz Polski}})
+Nieobecni: {{OSOBA|Ola Wiśniewska}} (urlop)
+
+1. Stan prac
+
+{{OSOBA|Kasia}} przedstawiła harmonogram. Migracja danych z {{NAZWA|Farmaksu}} jest opóźniona o dwa tygodnie, bo klient nie dostarczył eksportu bazy. {{OSOBA|Paweł}} zwrócił uwagę, że bez tego nie ruszymy z testami integracji z hurtownią {{FIRMA|Medikon}}. Pani {{OSOBA|Marczak}} obiecała, że {{FIRMA|Aptekarz}} przekaże pliki do środy.
+
+{{OSOBA|Marta}} pokazała nowy ekran zamówień. Panu {{OSOBA|Robertowi}} podobał się układ, ale poprosił o większe przyciski, bo farmaceuci pracują na tabletach. Z {{OSOBA|Martą}} ustalono, że poprawki będą gotowe na kolejne demo.
+
+2. Problemy
+
+{{OSOBA|Michał}} zgłosił, że serwer testowy u dostawcy chmury ({{FIRMA|Chmura Bałtycka}}) dwa razy w tym tygodniu był niedostępny. {{OSOBA|Kozioł}} ma eskalować sprawę do ich opiekuna, pana {{OSOBA|Bartosza Jaworskiego}} (tel. {{TELEFON|502-118-730}}). Jeśli {{FIRMA|Chmura Bałtycka}} nie poprawi dostępności, wracamy do rozmów z {{FIRMA|DataPort}}.
+
+{{OSOBA|Ewa Marczak}} poinformowała, że zarząd {{FIRMA|Aptekarza Polskiego}} rozważa przejęcie sieci {{FIRMA|Zdrowa Apteka}} z {{MIEJSCE|Rzeszowa}}. Informacja jest poufna. Gdyby doszło do transakcji, zakres {{NAZWA|Bursztynu}} wzrośnie o około 40 placówek.
+
+3. Budżet
+
+Dotychczas zafakturowano 310 tys. zł z 520 tys. zł. {{OSOBA|Lis}} przygotuje dla {{OSOBA|Gołębia}} zestawienie godzin za kwiecień. Faktura pójdzie na {{FIRMA|Aptekarz Polski S.A.}}, {{ADRES|ul. Lipowa 4a, 15-427 Białystok}}.
+
+4. Ustalenia
+
+a) {{OSOBA|Paweł Kozioł}}: eskalacja do {{FIRMA|Chmury Bałtyckiej}}, termin 12 maja.
+b) {{OSOBA|Marta Sikora}}: poprawki ekranu zamówień, termin 16 maja.
+c) {{OSOBA|E. Marczak}}: eksport bazy z {{NAZWA|Farmaksu}}, termin 14 maja.
+d) {{OSOBA|Katarzyna Lis}}: zestawienie godzin, wysyłka na {{EMAIL|robert.golab@aptekarzpolski.example}}.
+e) {{OSOBA|Michałowi}} przydzielono przygotowanie środowiska zapasowego.
+
+Następne spotkanie: 23 maja, u klienta w {{MIEJSCE|Białymstoku}}. Notatkę sporządziła {{OSOBA|Katarzyna Lis}}.

@@ -1,0 +1,85 @@
+# Projekt anonimizacja: własny n8n (port 5687), jego baza, Docling i serwis anonimizator.
+# Niezależny od C:\Moja nauka\Szkolenie agenci AI\training-mateusz (n8n na 5686).
+# Ollama działa natywnie na hoście, dostęp przez host.docker.internal:11434.
+# Sekrety w .env obok tego pliku. Dane n8n w ..\n8n\ (dane, baza, pliki).
+name: anonimizacja
+
+services:
+  anonimizator:
+    build: .
+    container_name: anonimizator
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8000" # tylko z tej maszyny, do testów z hosta
+    environment:
+      - DOCLING_URL=http://docling:5001
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - DATA_DIR=/data
+      - LLM_MODEL=gemma4:e4b
+    volumes:
+      - ./dane:/data
+      # Kod i testy montowane z dysku: zmiana pliku nie wymaga przebudowy obrazu
+      - ./app:/srv/app
+      - ./testy:/srv/testy
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/srv/app"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - docling
+
+  n8n:
+    image: n8nio/n8n:${N8N_VERSION}
+    container_name: anonimizacja-n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5687:5678" # tylko z tej maszyny: workflowy widzą prawdziwe dane
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=n8n-baza
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      # 127.0.0.1 zamiast localhost: przeglądarka trzyma ciasteczka per host bez portu,
+      # więc logowanie tu nie wylogowuje z n8n na localhost:5686.
+      - N8N_HOST=127.0.0.1
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://127.0.0.1:5687/
+      - N8N_EDITOR_BASE_URL=http://127.0.0.1:5687/
+      - GENERIC_TIMEZONE=Europe/Warsaw
+      - TZ=Europe/Warsaw
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data/shared
+      - N8N_DIAGNOSTICS_ENABLED=false # bez telemetrii do n8n.io
+      # Code nodes tylko w JS: wystarczy wbudowany runner, bez osobnego kontenera.
+    volumes:
+      - ../n8n/dane:/home/node/.n8n
+      - ../n8n/pliki:/data/shared
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      n8n-baza:
+        condition: service_healthy
+
+  n8n-baza:
+    image: postgres:15-alpine
+    container_name: anonimizacja-n8n-baza
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ../n8n/baza:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu
+    container_name: anonimizacja-docling
+    restart: unless-stopped
+    # Bez portu na hoście: używa go tylko anonimizator przez sieć projektu.

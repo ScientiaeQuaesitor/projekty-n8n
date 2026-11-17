@@ -1,0 +1,1486 @@
+[
+  {
+    "updatedAt": "2026-11-15T15:03:38.018Z",
+    "createdAt": "2026-11-15T13:37:14.141Z",
+    "id": "t2bGisJZ9WtC9y67",
+    "name": "Anonimizacja i deanonimizacja dokumentów",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "a1",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "anonimizacja-raport",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "b7c1d2e3-5f60-4a71-8b92-c3d4e5f6a7b8"
+      },
+      {
+        "id": "a2",
+        "name": "Podziel na fragmenty",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Why Code: dzielenie tekstu, dopasowanie odmian, łączenie form tej samej osoby i kontrola wycieku to pętle i regexy, których nie wyrazi żaden węzeł natywny\n// ---- wspólna logika (identyczna w węzłach \"Anonimizuj\" i \"Uzupełnij anonimizację\") ----\nconst CHUNK = 3000, OVERLAP = 200;\nconst TYPES = ['NAME', 'COMPANY', 'ADDRESS', 'EMAIL', 'PHONE', 'PESEL', 'NIP'];\nconst TYPE_ALIAS = { PERSON: 'NAME', OSOBA: 'NAME', ORGANIZATION: 'COMPANY', ORG: 'COMPANY', FIRMA: 'COMPANY', ADRES: 'ADDRESS', TELEFON: 'PHONE', MAIL: 'EMAIL', 'E-MAIL': 'EMAIL' };\nconst PH_RX = /\\[(?:NAME|COMPANY|ADDRESS|EMAIL|PHONE|PESEL|NIP)_\\d+\\]/g;\n\nfunction splitText(text, size, overlap) {\n  const out = [];\n  let i = 0;\n  while (i < text.length) {\n    let end = Math.min(i + size, text.length);\n    if (end < text.length) {\n      const w = text.slice(i, end);\n      let cut = w.lastIndexOf('\\n\\n');\n      if (cut < size * 0.5) { const m = [...w.matchAll(/[.!?]\\s/g)]; cut = m.length ? m[m.length - 1].index + 1 : -1; }\n      if (cut < size * 0.5) cut = w.lastIndexOf(' ');\n      if (cut <= 0) cut = w.length;\n      end = i + cut;\n    }\n    out.push(text.slice(i, end));\n    if (end >= text.length) break;\n    const sp = text.indexOf(' ', end - overlap);\n    i = overlap > 0 && sp > i && sp < end ? sp + 1 : end;\n  }\n  return out;\n}\n\nfunction parseEntities(items) {\n  const out = [];\n  for (const it of items) {\n    const j = it.json;\n    const raw = Array.isArray(j.entities) ? j : (j.text ?? j.output ?? j.response);\n    let ents;\n    try { ents = (typeof raw === 'string' ? JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) : raw).entities; } catch (e) { /* niżej */ }\n    if (!Array.isArray(ents)) throw new Error('Lokalny model nie zwrócił poprawnego JSON z encjami. Przerwano przed wysyłką do zewnętrznego AI.');\n    for (const e of ents) {\n      const t = String(e?.type || '').toUpperCase();\n      const type = TYPE_ALIAS[t] || t;\n      const value = String(e?.value ?? '').trim();\n      if (!TYPES.includes(type) || value.length < 2 || /[\\[\\]]/.test(value)) continue;\n      out.push({ type, value, gender: String(e?.gender || '').toLowerCase()[0] });\n    }\n  }\n  return out;\n}\n\nconst ENDINGS = new Set(['', 'a', 'ą', 'ę', 'e', 'y', 'i', 'u', 'o', 'em', 'im', 'ym', 'ie', 'ia', 'ię', 'ią', 'owi', 'ego', 'emu', 'ej', 'iej', 'iego', 'iemu', 'iem', 'ów', 'om', 'ami', 'ach', 'owie']);\nconst NAME_STOP = new Set(['pan', 'pani', 'pana', 'panu', 'panem', 'panią', 'państwo', 'dr', 'mgr', 'inż', 'prof', 'mec']);\nconst COMPANY_STOP = new Set(['sp', 'oo', 'sa', 'ska', 'spółka', 'spółki', 'spółce', 'spółkę', 'spółką', 'akcyjna', 'akcyjnej', 'ograniczoną', 'odpowiedzialnością', 'komandytowa', 'jawna', 'cywilna', 'firma', 'firmy', 'firmie', 'firmę', 'firmą']);\nconst LEGAL = String.raw`(?:Sp\\.\\s?z\\s?o\\.\\s?o\\.|S\\.K\\.A\\.|S\\.A\\.|sp\\.\\s?k\\.|sp\\.\\s?j\\.|s\\.c\\.|[Ss]półka [Aa]kcyjna|[Ss]półka z ograniczoną odpowiedzialnością)`;\n\nfunction stemVariants(lw) {\n  const base = lw.replace(/[aąeęioóuy]+$/u, '');\n  const v = new Set([base]);\n  const m = base.match(/^(.+[^aąeęioóuy])i?e([^aąeęioóuy]{1,2})$/u); // Marek -> Mark, Paweł -> Pawł\n  if (m) v.add(m[1] + m[2]);\n  const k = base.match(/^(.+)io([^aąeęioóuy])$/u); // Kozioł -> Kozł\n  if (k) v.add(k[1] + k[2]);\n  for (const s of [...v]) { v.add(s.replace(/ó(?=[^ó]*$)/u, 'o')); v.add(s.replace(/ą(?=[^ą]*$)/u, 'ę')); }\n  // Wymiany spółgłosek w odmianie: Agnieszce -> Agnieszk, Marcie -> Mart, Kindze -> King, Barbarze -> Barbar, Michale -> Michał, Budimpex -> Budimpeks\n  for (const s of [...v]) for (const [a, b] of [['c', 'k'], ['c', 't'], ['dz', 'g'], ['dz', 'd'], ['rz', 'r'], ['l', 'ł'], ['x', 'ks']]) if (s.endsWith(a)) v.add(s.slice(0, -a.length) + b);\n  return [...v].filter(s => s.length >= 3);\n}\nconst SHORT_ENDINGS = new Set(['a', 'y', 'i', 'ie', 'ę', 'ą', 'o']); // dla imion trzyliterowych (Ewa, Ada, Iga)\n\n// Rejestr rdzeni dla jednego typu (NAME albo COMPANY): łapie odmiany i formy skrócone\nfunction makeStemmer(values, stop) {\n  const stems = new Map(), short = new Map(), exact = new Map();\n  const tokensOf = v => (v.match(/\\p{L}+/gu) || []).map(t => t.toLowerCase()).filter(t => t.length >= 2 && !stop.has(t));\n  const idOf = word => {\n    const lw = word.toLowerCase();\n    if (stop.has(lw)) return null;\n    if (exact.has(lw)) return exact.get(lw);\n    let best = null, bl = Infinity;\n    for (const [s, id] of stems) if (s.length < bl && lw.startsWith(s) && ENDINGS.has(lw.slice(s.length))) { best = id; bl = s.length; }\n    if (best === null) for (const [s, id] of short) if (lw.startsWith(s) && SHORT_ENDINGS.has(lw.slice(s.length))) best = id;\n    return best;\n  };\n  // Od najkrótszych: formy podstawowe rejestrują rdzeń, a odmiany (Markowi, Budimpeksem) dopasowują się do już znanego\n  const all = [...new Set(values.flatMap(tokensOf))].sort((a, b) => a.length - b.length);\n  for (const lw of all) {\n    if (idOf(lw) !== null) continue;\n    const vs = stemVariants(lw);\n    if (vs.length) {\n      const id = vs.map(s => stems.get(s)).find(Boolean) || vs[0];\n      for (const s of vs) if (!stems.has(s)) stems.set(s, id);\n    } else if (lw.length === 3 && /[aąeęioóuy]$/u.test(lw)) short.set(lw.slice(0, 2), lw.slice(0, 2));\n    else exact.set(lw, lw);\n  }\n  const keyOf = ids => [...new Set(ids)].sort().join('|');\n  const keyOfValue = v => keyOf(tokensOf(v).map(idOf).filter(Boolean));\n  const covers = v => { const t = tokensOf(v); return t.length > 0 && t.every(x => idOf(x) !== null); };\n  const words = s => {\n    const w = [];\n    for (const m of s.matchAll(/\\p{Lu}\\p{L}*/gu)) { const id = idOf(m[0]); if (id !== null) w.push({ start: m.index, end: m.index + m[0].length, ids: [id] }); }\n    return w;\n  };\n  const spans = s => {\n    const out = [];\n    for (const w of words(s)) {\n      const last = out[out.length - 1];\n      if (last && w.start - last.end === 1 && /[ -]/.test(s[last.end])) { last.end = w.end; last.ids.push(...w.ids); }\n      else out.push({ ...w, ids: [...w.ids] });\n    }\n    return out;\n  };\n  return { keyOf, keyOfValue, words, spans, covers, empty: stems.size + short.size + exact.size === 0 };\n}\n\n// Formy tej samej osoby/firmy dostają jeden identyfikator, o ile przypisanie jest jednoznaczne\nfunction groupKeys(keys) {\n  const groups = [], of = new Map();\n  for (const key of [...new Set(keys)].sort((a, b) => b.split('|').length - a.split('|').length)) {\n    const ids = key.split('|');\n    const cands = groups.filter(g => ids.every(i => g.ids.has(i)));\n    if (cands.length === 1) of.set(key, cands[0]);\n    else { const g = { ids: new Set(ids), key }; groups.push(g); of.set(key, g); }\n  }\n  return { groups, of };\n}\n\nfunction anonymize(text, entities) {\n  const by = t => [...new Set(entities.filter(e => e.type === t).map(e => e.value))];\n  const taken = new Uint8Array(text.length);\n  const spans = [];\n  const claim = (start, end, type, key, group) => {\n    let s = start;\n    while (s < end) {\n      while (s < end && taken[s]) s++;\n      let e = s;\n      while (e < end && !taken[e]) e++;\n      if (e <= s) break;\n      let a = s, b = e;\n      const whole = s === start && e === end;\n      if (!whole) {\n        while (a < b && /[\\s,;:.()]/.test(text[a])) a++;\n        while (b > a && /[\\s,;:(]/.test(text[b - 1])) b--;\n      }\n      const frag = text.slice(a, b);\n      if (whole) spans.push({ start: a, end: b, type, key, group });\n      else if (frag.length >= 2 && /[\\p{Lu}\\d]/u.test(frag)) spans.push({ start: a, end: b, type, key: 'frag:' + frag.toLowerCase() });\n      else { s = e; continue; }\n      taken.fill(1, a, b);\n      s = e;\n    }\n  };\n  const digits = s => s.replace(/\\D/g, '');\n  const norm = s => s.toLowerCase().replace(/\\s+/g, ' ').trim();\n  const claimRx = (rx, type, keyFn) => { for (const m of text.matchAll(rx)) claim(m.index, m.index + m[0].length, type, keyFn(m[0])); };\n  const claimValues = (values, type, keyFn, wordBound) => {\n    for (const v of [...values].sort((a, b) => b.length - a.length)) {\n      for (let i = text.indexOf(v); i !== -1; i = text.indexOf(v, i + 1)) {\n        if (wordBound && (/[\\p{L}\\d]/u.test(text[i - 1] || '') || /[\\p{L}\\d]/u.test(text[i + v.length] || ''))) continue;\n        claim(i, i + v.length, type, keyFn(v));\n      }\n    }\n  };\n\n  // 1. Identyfikatory o stałym formacie: regex niezależnie od LLM + wartości wskazane przez LLM\n  const EMAIL_RX = /[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+/g;\n  const PHONE_RX = /(?<![\\w+])(?:\\+\\d{1,3}[\\s-]?)?(?:\\d{3}[\\s-]?\\d{3}[\\s-]?\\d{3}|\\d{2}[\\s-]?\\d{3}[\\s-]?\\d{2}[\\s-]?\\d{2})(?!\\d)/g;\n  claimRx(EMAIL_RX, 'EMAIL', norm);\n  claimRx(/(?<!\\d)\\d{11}(?!\\d)/g, 'PESEL', digits);\n  claimRx(/(?<![\\d-])(?:PL\\s?)?(?:\\d{10}|\\d{3}-\\d{3}-\\d{2}-\\d{2}|\\d{3}-\\d{2}-\\d{2}-\\d{3})(?![\\d-])/g, 'NIP', digits);\n  claimRx(PHONE_RX, 'PHONE', v => digits(v).slice(-9));\n  claimValues(by('EMAIL'), 'EMAIL', norm);\n  claimValues(by('PESEL').filter(v => digits(v).length >= 9), 'PESEL', digits);\n  claimValues(by('NIP').filter(v => digits(v).length >= 9), 'NIP', digits);\n  claimValues(by('PHONE').filter(v => digits(v).length >= 7), 'PHONE', v => digits(v).slice(-9));\n\n  // 2. Adresy: przed firmami i osobami, bo zawierają nazwiska patronów ulic\n  claimValues(by('ADDRESS'), 'ADDRESS', norm);\n  claimRx(/(?<!\\p{L})(?:ul\\.|ulic[aąęy]|al\\.|alei|aleja|aleję|pl\\.|placu?|os\\.|osiedl[eu])\\s+[\\p{L}\\d .'-]{2,50}?\\s\\d+[A-Za-z]?(?:\\s?\\/\\s?\\d+[A-Za-z]?)?(?:\\s+(?:m\\.|lok\\.)\\s?\\d+)?(?:,?\\s+\\d{2}-\\d{3}\\s+\\p{Lu}[\\p{L}-]+(?:\\s\\p{Lu}[\\p{L}-]+)?)?/gu, 'ADDRESS', norm);\n  claimRx(/(?<!\\d)\\d{2}-\\d{3}\\s+\\p{Lu}[\\p{L}-]+(?:\\s\\p{Lu}[\\p{L}-]+)?/gu, 'ADDRESS', norm);\n\n  // 3. Firmy: rdzenie z nazw wskazanych przez LLM (plus regex po formie prawnej, gdy LLM firmę pominął)\n  const nameValues = by('NAME');\n  const ns = makeStemmer(nameValues, NAME_STOP);\n  const companyValues = by('COMPANY').filter(v => !ns.covers(v)); // wartość rozpoznana też jako osoba zostaje osobą\n  for (const m of text.matchAll(new RegExp(String.raw`(?:\\p{Lu}[\\p{L}\\d&'-]*\\s+){1,5}` + LEGAL, 'gu'))) {\n    if (!companyValues.some(v => m[0].includes(v))) companyValues.push(m[0]);\n  }\n  const cs = makeStemmer(companyValues, COMPANY_STOP);\n  const known = new Set(companyValues.map(cs.keyOfValue).filter(Boolean));\n  const companySpans = s => {\n    const out = [];\n    for (const sp of cs.spans(s)) {\n      if (known.has(cs.keyOf(sp.ids))) out.push(sp);\n      else for (const w of cs.words(s.slice(sp.start, sp.end))) if (known.has(cs.keyOf(w.ids))) out.push({ start: sp.start + w.start, end: sp.start + w.end, ids: w.ids });\n    }\n    return out;\n  };\n  const cSpans = companySpans(text);\n  const cGroups = groupKeys(cSpans.map(sp => cs.keyOf(sp.ids)));\n  const legalRx = new RegExp(String.raw`^\\s+` + LEGAL, 'u');\n  for (const sp of cSpans) {\n    const g = cGroups.of.get(cs.keyOf(sp.ids));\n    const m = text.slice(sp.end, sp.end + 60).match(legalRx);\n    claim(sp.start, sp.end + (m ? m[0].length : 0), 'COMPANY', 'g', g);\n  }\n  claimValues(companyValues, 'COMPANY', norm, true);\n  for (const g of cGroups.groups) {\n    g.type = 'COMPANY';\n    g.original = companyValues.filter(v => text.includes(v) && cs.keyOfValue(v) === g.key).sort((a, b) => b.length - a.length)[0];\n  }\n\n  // 4. Osoby\n  const nSpans = ns.spans(text);\n  const nGroups = groupKeys(nSpans.map(sp => ns.keyOf(sp.ids)));\n  for (const sp of nSpans) claim(sp.start, sp.end, 'NAME', 'g', nGroups.of.get(ns.keyOf(sp.ids)));\n  claimValues(nameValues, 'NAME', norm, true);\n  for (const g of nGroups.groups) {\n    g.type = 'NAME';\n    g.original = nameValues.find(v => text.includes(v) && ns.keyOfValue(v) === g.key); // tylko forma faktycznie obecna w tekście\n    const votes = { m: 0, f: 0 };\n    for (const e of entities) {\n      if (e.type !== 'NAME' || !(e.gender in votes)) continue;\n      const ids = ns.keyOfValue(e.value).split('|').filter(Boolean);\n      if (ids.length && nGroups.groups.filter(x => ids.every(i => x.ids.has(i))).length === 1 && ids.every(i => g.ids.has(i))) votes[e.gender]++;\n    }\n    g.votes = votes;\n  }\n\n  // 5. Podmiana: numeracja identyfikatorów w kolejności wystąpień\n  spans.sort((a, b) => a.start - b.start);\n  const counters = {}, map = new Map();\n  let out = '', pos = 0;\n  for (const sp of spans) {\n    const surface = text.slice(sp.start, sp.end);\n    const id = sp.group || `${sp.type}:${sp.key}`;\n    if (!map.has(id)) {\n      counters[sp.type] = (counters[sp.type] || 0) + 1;\n      const g = sp.group;\n      const original = (g && g.original) || surface;\n      let gender = '';\n      if (sp.type === 'NAME') gender = g && g.votes.m !== g.votes.f ? (g.votes.m > g.votes.f ? 'm' : 'f') : (/a$/i.test(original.split(/[\\s-]/)[0]) ? 'f' : 'm');\n      map.set(id, { placeholder: `[${sp.type}_${counters[sp.type]}]`, type: sp.type, original, gender });\n    }\n    out += text.slice(pos, sp.start) + map.get(id).placeholder;\n    pos = sp.end;\n  }\n  out += text.slice(pos);\n\n  // 6. Kontrola wycieku\n  const bare = out.replace(PH_RX, ' ');\n  let leaks = 0;\n  if (/[\\w.+-]+@[\\w-]+\\.[\\w-]+/.test(bare)) leaks++;\n  if (/(?<!\\d)\\d{10,11}(?!\\d)/.test(bare)) leaks++;\n  if (!ns.empty) leaks += ns.spans(bare).length;\n  if (!cs.empty) leaks += companySpans(bare).length;\n  for (const e of entities) {\n    if (e.value.length < 3 || !bare.includes(e.value)) continue;\n    const wb = e.type === 'NAME' || e.type === 'COMPANY';\n    if (!wb || new RegExp(`(?<![\\\\p{L}\\\\d])${e.value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}(?![\\\\p{L}\\\\d])`, 'u').test(bare)) leaks++;\n  }\n  return { out, entities: [...map.values()], leaks };\n}\n// ---- koniec wspólnej logiki ----\n\nconst text = $input.first().json.body?.text;\nif (typeof text !== 'string' || !text.trim()) throw new Error('Brak pola \"text\" (string) w body żądania');\nreturn splitText(text, CHUNK, OVERLAP).map((chunk, i) => ({ json: { i, chunk } }));\n"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a3",
+        "name": "Wykryj PII",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "=Tekst do analizy:\n{{ $json.chunk }}",
+          "messages": {
+            "messageValues": [
+              {
+                "type": "SystemMessagePromptTemplate",
+                "message": "Jesteś detektorem danych osobowych w polskich dokumentach. Zwróć WYŁĄCZNIE JSON w formacie {\"entities\":[{\"type\":\"TYP\",\"value\":\"...\",\"gender\":\"m|f\"}]}. Pole gender podawaj tylko dla typu NAME (m – mężczyzna, f – kobieta).\nTypy:\nNAME – imię, nazwisko albo imię i nazwisko osoby fizycznej. Każdą formę z tekstu wypisz osobno: pełną, samo imię, samo nazwisko i każdą odmianę (np. \"Jan Kowalski\", \"Jan\", \"Kowalskiego\").\nCOMPANY – nazwa firmy, spółki, banku, instytucji, urzędu, fundacji. Każdą formę osobno: pełną z formą prawną, skróconą i odmienioną (np. \"Acme Sp. z o.o.\", \"Acme\").\nADDRESS – adres pocztowy: ulica z numerem, kod pocztowy z miejscowością. Cały adres jako jedna wartość.\nEMAIL – adres e-mail. PHONE – numer telefonu. PESEL – numer PESEL. NIP – numer NIP.\nZasady: value kopiuj znak po znaku z tekstu, w tej samej formie gramatycznej, bez zamiany na mianownik (tekst \"z Markiem Nowakiem\" daje value \"Markiem Nowakiem\"). Fragmenty w nawiasach kwadratowych, np. [NAME_1] albo [ADDRESS_2], są już zanonimizowane: pomijaj je. Nie zwracaj stanowisk, dat, kwot ani samych nazw miast i krajów bez adresu. Każdą wartość podaj tylko raz. Gdy brak danych: {\"entities\":[]}."
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a4",
+        "name": "Anonimizuj",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          760,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Why Code: dzielenie tekstu, dopasowanie odmian, łączenie form tej samej osoby i kontrola wycieku to pętle i regexy, których nie wyrazi żaden węzeł natywny\n// ---- wspólna logika (identyczna w węzłach \"Anonimizuj\" i \"Uzupełnij anonimizację\") ----\nconst CHUNK = 3000, OVERLAP = 200;\nconst TYPES = ['NAME', 'COMPANY', 'ADDRESS', 'EMAIL', 'PHONE', 'PESEL', 'NIP'];\nconst TYPE_ALIAS = { PERSON: 'NAME', OSOBA: 'NAME', ORGANIZATION: 'COMPANY', ORG: 'COMPANY', FIRMA: 'COMPANY', ADRES: 'ADDRESS', TELEFON: 'PHONE', MAIL: 'EMAIL', 'E-MAIL': 'EMAIL' };\nconst PH_RX = /\\[(?:NAME|COMPANY|ADDRESS|EMAIL|PHONE|PESEL|NIP)_\\d+\\]/g;\n\nfunction splitText(text, size, overlap) {\n  const out = [];\n  let i = 0;\n  while (i < text.length) {\n    let end = Math.min(i + size, text.length);\n    if (end < text.length) {\n      const w = text.slice(i, end);\n      let cut = w.lastIndexOf('\\n\\n');\n      if (cut < size * 0.5) { const m = [...w.matchAll(/[.!?]\\s/g)]; cut = m.length ? m[m.length - 1].index + 1 : -1; }\n      if (cut < size * 0.5) cut = w.lastIndexOf(' ');\n      if (cut <= 0) cut = w.length;\n      end = i + cut;\n    }\n    out.push(text.slice(i, end));\n    if (end >= text.length) break;\n    const sp = text.indexOf(' ', end - overlap);\n    i = overlap > 0 && sp > i && sp < end ? sp + 1 : end;\n  }\n  return out;\n}\n\nfunction parseEntities(items) {\n  const out = [];\n  for (const it of items) {\n    const j = it.json;\n    const raw = Array.isArray(j.entities) ? j : (j.text ?? j.output ?? j.response);\n    let ents;\n    try { ents = (typeof raw === 'string' ? JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) : raw).entities; } catch (e) { /* niżej */ }\n    if (!Array.isArray(ents)) throw new Error('Lokalny model nie zwrócił poprawnego JSON z encjami. Przerwano przed wysyłką do zewnętrznego AI.');\n    for (const e of ents) {\n      const t = String(e?.type || '').toUpperCase();\n      const type = TYPE_ALIAS[t] || t;\n      const value = String(e?.value ?? '').trim();\n      if (!TYPES.includes(type) || value.length < 2 || /[\\[\\]]/.test(value)) continue;\n      out.push({ type, value, gender: String(e?.gender || '').toLowerCase()[0] });\n    }\n  }\n  return out;\n}\n\nconst ENDINGS = new Set(['', 'a', 'ą', 'ę', 'e', 'y', 'i', 'u', 'o', 'em', 'im', 'ym', 'ie', 'ia', 'ię', 'ią', 'owi', 'ego', 'emu', 'ej', 'iej', 'iego', 'iemu', 'iem', 'ów', 'om', 'ami', 'ach', 'owie']);\nconst NAME_STOP = new Set(['pan', 'pani', 'pana', 'panu', 'panem', 'panią', 'państwo', 'dr', 'mgr', 'inż', 'prof', 'mec']);\nconst COMPANY_STOP = new Set(['sp', 'oo', 'sa', 'ska', 'spółka', 'spółki', 'spółce', 'spółkę', 'spółką', 'akcyjna', 'akcyjnej', 'ograniczoną', 'odpowiedzialnością', 'komandytowa', 'jawna', 'cywilna', 'firma', 'firmy', 'firmie', 'firmę', 'firmą']);\nconst LEGAL = String.raw`(?:Sp\\.\\s?z\\s?o\\.\\s?o\\.|S\\.K\\.A\\.|S\\.A\\.|sp\\.\\s?k\\.|sp\\.\\s?j\\.|s\\.c\\.|[Ss]półka [Aa]kcyjna|[Ss]półka z ograniczoną odpowiedzialnością)`;\n\nfunction stemVariants(lw) {\n  const base = lw.replace(/[aąeęioóuy]+$/u, '');\n  const v = new Set([base]);\n  const m = base.match(/^(.+[^aąeęioóuy])i?e([^aąeęioóuy]{1,2})$/u); // Marek -> Mark, Paweł -> Pawł\n  if (m) v.add(m[1] + m[2]);\n  const k = base.match(/^(.+)io([^aąeęioóuy])$/u); // Kozioł -> Kozł\n  if (k) v.add(k[1] + k[2]);\n  for (const s of [...v]) { v.add(s.replace(/ó(?=[^ó]*$)/u, 'o')); v.add(s.replace(/ą(?=[^ą]*$)/u, 'ę')); }\n  // Wymiany spółgłosek w odmianie: Agnieszce -> Agnieszk, Marcie -> Mart, Kindze -> King, Barbarze -> Barbar, Michale -> Michał, Budimpex -> Budimpeks\n  for (const s of [...v]) for (const [a, b] of [['c', 'k'], ['c', 't'], ['dz', 'g'], ['dz', 'd'], ['rz', 'r'], ['l', 'ł'], ['x', 'ks']]) if (s.endsWith(a)) v.add(s.slice(0, -a.length) + b);\n  return [...v].filter(s => s.length >= 3);\n}\nconst SHORT_ENDINGS = new Set(['a', 'y', 'i', 'ie', 'ę', 'ą', 'o']); // dla imion trzyliterowych (Ewa, Ada, Iga)\n\n// Rejestr rdzeni dla jednego typu (NAME albo COMPANY): łapie odmiany i formy skrócone\nfunction makeStemmer(values, stop) {\n  const stems = new Map(), short = new Map(), exact = new Map();\n  const tokensOf = v => (v.match(/\\p{L}+/gu) || []).map(t => t.toLowerCase()).filter(t => t.length >= 2 && !stop.has(t));\n  const idOf = word => {\n    const lw = word.toLowerCase();\n    if (stop.has(lw)) return null;\n    if (exact.has(lw)) return exact.get(lw);\n    let best = null, bl = Infinity;\n    for (const [s, id] of stems) if (s.length < bl && lw.startsWith(s) && ENDINGS.has(lw.slice(s.length))) { best = id; bl = s.length; }\n    if (best === null) for (const [s, id] of short) if (lw.startsWith(s) && SHORT_ENDINGS.has(lw.slice(s.length))) best = id;\n    return best;\n  };\n  // Od najkrótszych: formy podstawowe rejestrują rdzeń, a odmiany (Markowi, Budimpeksem) dopasowują się do już znanego\n  const all = [...new Set(values.flatMap(tokensOf))].sort((a, b) => a.length - b.length);\n  for (const lw of all) {\n    if (idOf(lw) !== null) continue;\n    const vs = stemVariants(lw);\n    if (vs.length) {\n      const id = vs.map(s => stems.get(s)).find(Boolean) || vs[0];\n      for (const s of vs) if (!stems.has(s)) stems.set(s, id);\n    } else if (lw.length === 3 && /[aąeęioóuy]$/u.test(lw)) short.set(lw.slice(0, 2), lw.slice(0, 2));\n    else exact.set(lw, lw);\n  }\n  const keyOf = ids => [...new Set(ids)].sort().join('|');\n  const keyOfValue = v => keyOf(tokensOf(v).map(idOf).filter(Boolean));\n  const covers = v => { const t = tokensOf(v); return t.length > 0 && t.every(x => idOf(x) !== null); };\n  const words = s => {\n    const w = [];\n    for (const m of s.matchAll(/\\p{Lu}\\p{L}*/gu)) { const id = idOf(m[0]); if (id !== null) w.push({ start: m.index, end: m.index + m[0].length, ids: [id] }); }\n    return w;\n  };\n  const spans = s => {\n    const out = [];\n    for (const w of words(s)) {\n      const last = out[out.length - 1];\n      if (last && w.start - last.end === 1 && /[ -]/.test(s[last.end])) { last.end = w.end; last.ids.push(...w.ids); }\n      else out.push({ ...w, ids: [...w.ids] });\n    }\n    return out;\n  };\n  return { keyOf, keyOfValue, words, spans, covers, empty: stems.size + short.size + exact.size === 0 };\n}\n\n// Formy tej samej osoby/firmy dostają jeden identyfikator, o ile przypisanie jest jednoznaczne\nfunction groupKeys(keys) {\n  const groups = [], of = new Map();\n  for (const key of [...new Set(keys)].sort((a, b) => b.split('|').length - a.split('|').length)) {\n    const ids = key.split('|');\n    const cands = groups.filter(g => ids.every(i => g.ids.has(i)));\n    if (cands.length === 1) of.set(key, cands[0]);\n    else { const g = { ids: new Set(ids), key }; groups.push(g); of.set(key, g); }\n  }\n  return { groups, of };\n}\n\nfunction anonymize(text, entities) {\n  const by = t => [...new Set(entities.filter(e => e.type === t).map(e => e.value))];\n  const taken = new Uint8Array(text.length);\n  const spans = [];\n  const claim = (start, end, type, key, group) => {\n    let s = start;\n    while (s < end) {\n      while (s < end && taken[s]) s++;\n      let e = s;\n      while (e < end && !taken[e]) e++;\n      if (e <= s) break;\n      let a = s, b = e;\n      const whole = s === start && e === end;\n      if (!whole) {\n        while (a < b && /[\\s,;:.()]/.test(text[a])) a++;\n        while (b > a && /[\\s,;:(]/.test(text[b - 1])) b--;\n      }\n      const frag = text.slice(a, b);\n      if (whole) spans.push({ start: a, end: b, type, key, group });\n      else if (frag.length >= 2 && /[\\p{Lu}\\d]/u.test(frag)) spans.push({ start: a, end: b, type, key: 'frag:' + frag.toLowerCase() });\n      else { s = e; continue; }\n      taken.fill(1, a, b);\n      s = e;\n    }\n  };\n  const digits = s => s.replace(/\\D/g, '');\n  const norm = s => s.toLowerCase().replace(/\\s+/g, ' ').trim();\n  const claimRx = (rx, type, keyFn) => { for (const m of text.matchAll(rx)) claim(m.index, m.index + m[0].length, type, keyFn(m[0])); };\n  const claimValues = (values, type, keyFn, wordBound) => {\n    for (const v of [...values].sort((a, b) => b.length - a.length)) {\n      for (let i = text.indexOf(v); i !== -1; i = text.indexOf(v, i + 1)) {\n        if (wordBound && (/[\\p{L}\\d]/u.test(text[i - 1] || '') || /[\\p{L}\\d]/u.test(text[i + v.length] || ''))) continue;\n        claim(i, i + v.length, type, keyFn(v));\n      }\n    }\n  };\n\n  // 1. Identyfikatory o stałym formacie: regex niezależnie od LLM + wartości wskazane przez LLM\n  const EMAIL_RX = /[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+/g;\n  const PHONE_RX = /(?<![\\w+])(?:\\+\\d{1,3}[\\s-]?)?(?:\\d{3}[\\s-]?\\d{3}[\\s-]?\\d{3}|\\d{2}[\\s-]?\\d{3}[\\s-]?\\d{2}[\\s-]?\\d{2})(?!\\d)/g;\n  claimRx(EMAIL_RX, 'EMAIL', norm);\n  claimRx(/(?<!\\d)\\d{11}(?!\\d)/g, 'PESEL', digits);\n  claimRx(/(?<![\\d-])(?:PL\\s?)?(?:\\d{10}|\\d{3}-\\d{3}-\\d{2}-\\d{2}|\\d{3}-\\d{2}-\\d{2}-\\d{3})(?![\\d-])/g, 'NIP', digits);\n  claimRx(PHONE_RX, 'PHONE', v => digits(v).slice(-9));\n  claimValues(by('EMAIL'), 'EMAIL', norm);\n  claimValues(by('PESEL').filter(v => digits(v).length >= 9), 'PESEL', digits);\n  claimValues(by('NIP').filter(v => digits(v).length >= 9), 'NIP', digits);\n  claimValues(by('PHONE').filter(v => digits(v).length >= 7), 'PHONE', v => digits(v).slice(-9));\n\n  // 2. Adresy: przed firmami i osobami, bo zawierają nazwiska patronów ulic\n  claimValues(by('ADDRESS'), 'ADDRESS', norm);\n  claimRx(/(?<!\\p{L})(?:ul\\.|ulic[aąęy]|al\\.|alei|aleja|aleję|pl\\.|placu?|os\\.|osiedl[eu])\\s+[\\p{L}\\d .'-]{2,50}?\\s\\d+[A-Za-z]?(?:\\s?\\/\\s?\\d+[A-Za-z]?)?(?:\\s+(?:m\\.|lok\\.)\\s?\\d+)?(?:,?\\s+\\d{2}-\\d{3}\\s+\\p{Lu}[\\p{L}-]+(?:\\s\\p{Lu}[\\p{L}-]+)?)?/gu, 'ADDRESS', norm);\n  claimRx(/(?<!\\d)\\d{2}-\\d{3}\\s+\\p{Lu}[\\p{L}-]+(?:\\s\\p{Lu}[\\p{L}-]+)?/gu, 'ADDRESS', norm);\n\n  // 3. Firmy: rdzenie z nazw wskazanych przez LLM (plus regex po formie prawnej, gdy LLM firmę pominął)\n  const nameValues = by('NAME');\n  const ns = makeStemmer(nameValues, NAME_STOP);\n  const companyValues = by('COMPANY').filter(v => !ns.covers(v)); // wartość rozpoznana też jako osoba zostaje osobą\n  for (const m of text.matchAll(new RegExp(String.raw`(?:\\p{Lu}[\\p{L}\\d&'-]*\\s+){1,5}` + LEGAL, 'gu'))) {\n    if (!companyValues.some(v => m[0].includes(v))) companyValues.push(m[0]);\n  }\n  const cs = makeStemmer(companyValues, COMPANY_STOP);\n  const known = new Set(companyValues.map(cs.keyOfValue).filter(Boolean));\n  const companySpans = s => {\n    const out = [];\n    for (const sp of cs.spans(s)) {\n      if (known.has(cs.keyOf(sp.ids))) out.push(sp);\n      else for (const w of cs.words(s.slice(sp.start, sp.end))) if (known.has(cs.keyOf(w.ids))) out.push({ start: sp.start + w.start, end: sp.start + w.end, ids: w.ids });\n    }\n    return out;\n  };\n  const cSpans = companySpans(text);\n  const cGroups = groupKeys(cSpans.map(sp => cs.keyOf(sp.ids)));\n  const legalRx = new RegExp(String.raw`^\\s+` + LEGAL, 'u');\n  for (const sp of cSpans) {\n    const g = cGroups.of.get(cs.keyOf(sp.ids));\n    const m = text.slice(sp.end, sp.end + 60).match(legalRx);\n    claim(sp.start, sp.end + (m ? m[0].length : 0), 'COMPANY', 'g', g);\n  }\n  claimValues(companyValues, 'COMPANY', norm, true);\n  for (const g of cGroups.groups) {\n    g.type = 'COMPANY';\n    g.original = companyValues.filter(v => text.includes(v) && cs.keyOfValue(v) === g.key).sort((a, b) => b.length - a.length)[0];\n  }\n\n  // 4. Osoby\n  const nSpans = ns.spans(text);\n  const nGroups = groupKeys(nSpans.map(sp => ns.keyOf(sp.ids)));\n  for (const sp of nSpans) claim(sp.start, sp.end, 'NAME', 'g', nGroups.of.get(ns.keyOf(sp.ids)));\n  claimValues(nameValues, 'NAME', norm, true);\n  for (const g of nGroups.groups) {\n    g.type = 'NAME';\n    g.original = nameValues.find(v => text.includes(v) && ns.keyOfValue(v) === g.key); // tylko forma faktycznie obecna w tekście\n    const votes = { m: 0, f: 0 };\n    for (const e of entities) {\n      if (e.type !== 'NAME' || !(e.gender in votes)) continue;\n      const ids = ns.keyOfValue(e.value).split('|').filter(Boolean);\n      if (ids.length && nGroups.groups.filter(x => ids.every(i => x.ids.has(i))).length === 1 && ids.every(i => g.ids.has(i))) votes[e.gender]++;\n    }\n    g.votes = votes;\n  }\n\n  // 5. Podmiana: numeracja identyfikatorów w kolejności wystąpień\n  spans.sort((a, b) => a.start - b.start);\n  const counters = {}, map = new Map();\n  let out = '', pos = 0;\n  for (const sp of spans) {\n    const surface = text.slice(sp.start, sp.end);\n    const id = sp.group || `${sp.type}:${sp.key}`;\n    if (!map.has(id)) {\n      counters[sp.type] = (counters[sp.type] || 0) + 1;\n      const g = sp.group;\n      const original = (g && g.original) || surface;\n      let gender = '';\n      if (sp.type === 'NAME') gender = g && g.votes.m !== g.votes.f ? (g.votes.m > g.votes.f ? 'm' : 'f') : (/a$/i.test(original.split(/[\\s-]/)[0]) ? 'f' : 'm');\n      map.set(id, { placeholder: `[${sp.type}_${counters[sp.type]}]`, type: sp.type, original, gender });\n    }\n    out += text.slice(pos, sp.start) + map.get(id).placeholder;\n    pos = sp.end;\n  }\n  out += text.slice(pos);\n\n  // 6. Kontrola wycieku\n  const bare = out.replace(PH_RX, ' ');\n  let leaks = 0;\n  if (/[\\w.+-]+@[\\w-]+\\.[\\w-]+/.test(bare)) leaks++;\n  if (/(?<!\\d)\\d{10,11}(?!\\d)/.test(bare)) leaks++;\n  if (!ns.empty) leaks += ns.spans(bare).length;\n  if (!cs.empty) leaks += companySpans(bare).length;\n  for (const e of entities) {\n    if (e.value.length < 3 || !bare.includes(e.value)) continue;\n    const wb = e.type === 'NAME' || e.type === 'COMPANY';\n    if (!wb || new RegExp(`(?<![\\\\p{L}\\\\d])${e.value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}(?![\\\\p{L}\\\\d])`, 'u').test(bare)) leaks++;\n  }\n  return { out, entities: [...map.values()], leaks };\n}\n// ---- koniec wspólnej logiki ----\n\nconst items = $input.all();\n// Niepełny komplet fragmentów oznacza błąd lokalnego modelu; odpowiedź wysyła gałąź błędu\nif (items.length !== $('Podziel na fragmenty').all().length) return [];\nconst r = anonymize($('Webhook').first().json.body.text, parseEntities(items));\n// Wstępnie zanonimizowany tekst wraca do lokalnego modelu na drugi przebieg (weryfikację)\nreturn splitText(r.out, CHUNK, OVERLAP).map((chunk, i) => ({ json: { i, chunk } }));\n"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a5",
+        "name": "Weryfikuj anonimizację",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          980,
+          0
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "=Tekst do analizy:\n{{ $json.chunk }}",
+          "messages": {
+            "messageValues": [
+              {
+                "type": "SystemMessagePromptTemplate",
+                "message": "Jesteś detektorem danych osobowych w polskich dokumentach. Zwróć WYŁĄCZNIE JSON w formacie {\"entities\":[{\"type\":\"TYP\",\"value\":\"...\",\"gender\":\"m|f\"}]}. Pole gender podawaj tylko dla typu NAME (m – mężczyzna, f – kobieta).\nTypy:\nNAME – imię, nazwisko albo imię i nazwisko osoby fizycznej. Każdą formę z tekstu wypisz osobno: pełną, samo imię, samo nazwisko i każdą odmianę (np. \"Jan Kowalski\", \"Jan\", \"Kowalskiego\").\nCOMPANY – nazwa firmy, spółki, banku, instytucji, urzędu, fundacji. Każdą formę osobno: pełną z formą prawną, skróconą i odmienioną (np. \"Acme Sp. z o.o.\", \"Acme\").\nADDRESS – adres pocztowy: ulica z numerem, kod pocztowy z miejscowością. Cały adres jako jedna wartość.\nEMAIL – adres e-mail. PHONE – numer telefonu. PESEL – numer PESEL. NIP – numer NIP.\nZasady: value kopiuj znak po znaku z tekstu, w tej samej formie gramatycznej, bez zamiany na mianownik (tekst \"z Markiem Nowakiem\" daje value \"Markiem Nowakiem\"). Fragmenty w nawiasach kwadratowych, np. [NAME_1] albo [ADDRESS_2], są już zanonimizowane: pomijaj je. Nie zwracaj stanowisk, dat, kwot ani samych nazw miast i krajów bez adresu. Każdą wartość podaj tylko raz. Gdy brak danych: {\"entities\":[]}."
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a6",
+        "name": "Uzupełnij anonimizację",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1300,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Why Code: dzielenie tekstu, dopasowanie odmian, łączenie form tej samej osoby i kontrola wycieku to pętle i regexy, których nie wyrazi żaden węzeł natywny\n// ---- wspólna logika (identyczna w węzłach \"Anonimizuj\" i \"Uzupełnij anonimizację\") ----\nconst CHUNK = 3000, OVERLAP = 200;\nconst TYPES = ['NAME', 'COMPANY', 'ADDRESS', 'EMAIL', 'PHONE', 'PESEL', 'NIP'];\nconst TYPE_ALIAS = { PERSON: 'NAME', OSOBA: 'NAME', ORGANIZATION: 'COMPANY', ORG: 'COMPANY', FIRMA: 'COMPANY', ADRES: 'ADDRESS', TELEFON: 'PHONE', MAIL: 'EMAIL', 'E-MAIL': 'EMAIL' };\nconst PH_RX = /\\[(?:NAME|COMPANY|ADDRESS|EMAIL|PHONE|PESEL|NIP)_\\d+\\]/g;\n\nfunction splitText(text, size, overlap) {\n  const out = [];\n  let i = 0;\n  while (i < text.length) {\n    let end = Math.min(i + size, text.length);\n    if (end < text.length) {\n      const w = text.slice(i, end);\n      let cut = w.lastIndexOf('\\n\\n');\n      if (cut < size * 0.5) { const m = [...w.matchAll(/[.!?]\\s/g)]; cut = m.length ? m[m.length - 1].index + 1 : -1; }\n      if (cut < size * 0.5) cut = w.lastIndexOf(' ');\n      if (cut <= 0) cut = w.length;\n      end = i + cut;\n    }\n    out.push(text.slice(i, end));\n    if (end >= text.length) break;\n    const sp = text.indexOf(' ', end - overlap);\n    i = overlap > 0 && sp > i && sp < end ? sp + 1 : end;\n  }\n  return out;\n}\n\nfunction parseEntities(items) {\n  const out = [];\n  for (const it of items) {\n    const j = it.json;\n    const raw = Array.isArray(j.entities) ? j : (j.text ?? j.output ?? j.response);\n    let ents;\n    try { ents = (typeof raw === 'string' ? JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) : raw).entities; } catch (e) { /* niżej */ }\n    if (!Array.isArray(ents)) throw new Error('Lokalny model nie zwrócił poprawnego JSON z encjami. Przerwano przed wysyłką do zewnętrznego AI.');\n    for (const e of ents) {\n      const t = String(e?.type || '').toUpperCase();\n      const type = TYPE_ALIAS[t] || t;\n      const value = String(e?.value ?? '').trim();\n      if (!TYPES.includes(type) || value.length < 2 || /[\\[\\]]/.test(value)) continue;\n      out.push({ type, value, gender: String(e?.gender || '').toLowerCase()[0] });\n    }\n  }\n  return out;\n}\n\nconst ENDINGS = new Set(['', 'a', 'ą', 'ę', 'e', 'y', 'i', 'u', 'o', 'em', 'im', 'ym', 'ie', 'ia', 'ię', 'ią', 'owi', 'ego', 'emu', 'ej', 'iej', 'iego', 'iemu', 'iem', 'ów', 'om', 'ami', 'ach', 'owie']);\nconst NAME_STOP = new Set(['pan', 'pani', 'pana', 'panu', 'panem', 'panią', 'państwo', 'dr', 'mgr', 'inż', 'prof', 'mec']);\nconst COMPANY_STOP = new Set(['sp', 'oo', 'sa', 'ska', 'spółka', 'spółki', 'spółce', 'spółkę', 'spółką', 'akcyjna', 'akcyjnej', 'ograniczoną', 'odpowiedzialnością', 'komandytowa', 'jawna', 'cywilna', 'firma', 'firmy', 'firmie', 'firmę', 'firmą']);\nconst LEGAL = String.raw`(?:Sp\\.\\s?z\\s?o\\.\\s?o\\.|S\\.K\\.A\\.|S\\.A\\.|sp\\.\\s?k\\.|sp\\.\\s?j\\.|s\\.c\\.|[Ss]półka [Aa]kcyjna|[Ss]półka z ograniczoną odpowiedzialnością)`;\n\nfunction stemVariants(lw) {\n  const base = lw.replace(/[aąeęioóuy]+$/u, '');\n  const v = new Set([base]);\n  const m = base.match(/^(.+[^aąeęioóuy])i?e([^aąeęioóuy]{1,2})$/u); // Marek -> Mark, Paweł -> Pawł\n  if (m) v.add(m[1] + m[2]);\n  const k = base.match(/^(.+)io([^aąeęioóuy])$/u); // Kozioł -> Kozł\n  if (k) v.add(k[1] + k[2]);\n  for (const s of [...v]) { v.add(s.replace(/ó(?=[^ó]*$)/u, 'o')); v.add(s.replace(/ą(?=[^ą]*$)/u, 'ę')); }\n  // Wymiany spółgłosek w odmianie: Agnieszce -> Agnieszk, Marcie -> Mart, Kindze -> King, Barbarze -> Barbar, Michale -> Michał, Budimpex -> Budimpeks\n  for (const s of [...v]) for (const [a, b] of [['c', 'k'], ['c', 't'], ['dz', 'g'], ['dz', 'd'], ['rz', 'r'], ['l', 'ł'], ['x', 'ks']]) if (s.endsWith(a)) v.add(s.slice(0, -a.length) + b);\n  return [...v].filter(s => s.length >= 3);\n}\nconst SHORT_ENDINGS = new Set(['a', 'y', 'i', 'ie', 'ę', 'ą', 'o']); // dla imion trzyliterowych (Ewa, Ada, Iga)\n\n// Rejestr rdzeni dla jednego typu (NAME albo COMPANY): łapie odmiany i formy skrócone\nfunction makeStemmer(values, stop) {\n  const stems = new Map(), short = new Map(), exact = new Map();\n  const tokensOf = v => (v.match(/\\p{L}+/gu) || []).map(t => t.toLowerCase()).filter(t => t.length >= 2 && !stop.has(t));\n  const idOf = word => {\n    const lw = word.toLowerCase();\n    if (stop.has(lw)) return null;\n    if (exact.has(lw)) return exact.get(lw);\n    let best = null, bl = Infinity;\n    for (const [s, id] of stems) if (s.length < bl && lw.startsWith(s) && ENDINGS.has(lw.slice(s.length))) { best = id; bl = s.length; }\n    if (best === null) for (const [s, id] of short) if (lw.startsWith(s) && SHORT_ENDINGS.has(lw.slice(s.length))) best = id;\n    return best;\n  };\n  // Od najkrótszych: formy podstawowe rejestrują rdzeń, a odmiany (Markowi, Budimpeksem) dopasowują się do już znanego\n  const all = [...new Set(values.flatMap(tokensOf))].sort((a, b) => a.length - b.length);\n  for (const lw of all) {\n    if (idOf(lw) !== null) continue;\n    const vs = stemVariants(lw);\n    if (vs.length) {\n      const id = vs.map(s => stems.get(s)).find(Boolean) || vs[0];\n      for (const s of vs) if (!stems.has(s)) stems.set(s, id);\n    } else if (lw.length === 3 && /[aąeęioóuy]$/u.test(lw)) short.set(lw.slice(0, 2), lw.slice(0, 2));\n    else exact.set(lw, lw);\n  }\n  const keyOf = ids => [...new Set(ids)].sort().join('|');\n  const keyOfValue = v => keyOf(tokensOf(v).map(idOf).filter(Boolean));\n  const covers = v => { const t = tokensOf(v); return t.length > 0 && t.every(x => idOf(x) !== null); };\n  const words = s => {\n    const w = [];\n    for (const m of s.matchAll(/\\p{Lu}\\p{L}*/gu)) { const id = idOf(m[0]); if (id !== null) w.push({ start: m.index, end: m.index + m[0].length, ids: [id] }); }\n    return w;\n  };\n  const spans = s => {\n    const out = [];\n    for (const w of words(s)) {\n      const last = out[out.length - 1];\n      if (last && w.start - last.end === 1 && /[ -]/.test(s[last.end])) { last.end = w.end; last.ids.push(...w.ids); }\n      else out.push({ ...w, ids: [...w.ids] });\n    }\n    return out;\n  };\n  return { keyOf, keyOfValue, words, spans, covers, empty: stems.size + short.size + exact.size === 0 };\n}\n\n// Formy tej samej osoby/firmy dostają jeden identyfikator, o ile przypisanie jest jednoznaczne\nfunction groupKeys(keys) {\n  const groups = [], of = new Map();\n  for (const key of [...new Set(keys)].sort((a, b) => b.split('|').length - a.split('|').length)) {\n    const ids = key.split('|');\n    const cands = groups.filter(g => ids.every(i => g.ids.has(i)));\n    if (cands.length === 1) of.set(key, cands[0]);\n    else { const g = { ids: new Set(ids), key }; groups.push(g); of.set(key, g); }\n  }\n  return { groups, of };\n}\n\nfunction anonymize(text, entities) {\n  const by = t => [...new Set(entities.filter(e => e.type === t).map(e => e.value))];\n  const taken = new Uint8Array(text.length);\n  const spans = [];\n  const claim = (start, end, type, key, group) => {\n    let s = start;\n    while (s < end) {\n      while (s < end && taken[s]) s++;\n      let e = s;\n      while (e < end && !taken[e]) e++;\n      if (e <= s) break;\n      let a = s, b = e;\n      const whole = s === start && e === end;\n      if (!whole) {\n        while (a < b && /[\\s,;:.()]/.test(text[a])) a++;\n        while (b > a && /[\\s,;:(]/.test(text[b - 1])) b--;\n      }\n      const frag = text.slice(a, b);\n      if (whole) spans.push({ start: a, end: b, type, key, group });\n      else if (frag.length >= 2 && /[\\p{Lu}\\d]/u.test(frag)) spans.push({ start: a, end: b, type, key: 'frag:' + frag.toLowerCase() });\n      else { s = e; continue; }\n      taken.fill(1, a, b);\n      s = e;\n    }\n  };\n  const digits = s => s.replace(/\\D/g, '');\n  const norm = s => s.toLowerCase().replace(/\\s+/g, ' ').trim();\n  const claimRx = (rx, type, keyFn) => { for (const m of text.matchAll(rx)) claim(m.index, m.index + m[0].length, type, keyFn(m[0])); };\n  const claimValues = (values, type, keyFn, wordBound) => {\n    for (const v of [...values].sort((a, b) => b.length - a.length)) {\n      for (let i = text.indexOf(v); i !== -1; i = text.indexOf(v, i + 1)) {\n        if (wordBound && (/[\\p{L}\\d]/u.test(text[i - 1] || '') || /[\\p{L}\\d]/u.test(text[i + v.length] || ''))) continue;\n        claim(i, i + v.length, type, keyFn(v));\n      }\n    }\n  };\n\n  // 1. Identyfikatory o stałym formacie: regex niezależnie od LLM + wartości wskazane przez LLM\n  const EMAIL_RX = /[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+/g;\n  const PHONE_RX = /(?<![\\w+])(?:\\+\\d{1,3}[\\s-]?)?(?:\\d{3}[\\s-]?\\d{3}[\\s-]?\\d{3}|\\d{2}[\\s-]?\\d{3}[\\s-]?\\d{2}[\\s-]?\\d{2})(?!\\d)/g;\n  claimRx(EMAIL_RX, 'EMAIL', norm);\n  claimRx(/(?<!\\d)\\d{11}(?!\\d)/g, 'PESEL', digits);\n  claimRx(/(?<![\\d-])(?:PL\\s?)?(?:\\d{10}|\\d{3}-\\d{3}-\\d{2}-\\d{2}|\\d{3}-\\d{2}-\\d{2}-\\d{3})(?![\\d-])/g, 'NIP', digits);\n  claimRx(PHONE_RX, 'PHONE', v => digits(v).slice(-9));\n  claimValues(by('EMAIL'), 'EMAIL', norm);\n  claimValues(by('PESEL').filter(v => digits(v).length >= 9), 'PESEL', digits);\n  claimValues(by('NIP').filter(v => digits(v).length >= 9), 'NIP', digits);\n  claimValues(by('PHONE').filter(v => digits(v).length >= 7), 'PHONE', v => digits(v).slice(-9));\n\n  // 2. Adresy: przed firmami i osobami, bo zawierają nazwiska patronów ulic\n  claimValues(by('ADDRESS'), 'ADDRESS', norm);\n  claimRx(/(?<!\\p{L})(?:ul\\.|ulic[aąęy]|al\\.|alei|aleja|aleję|pl\\.|placu?|os\\.|osiedl[eu])\\s+[\\p{L}\\d .'-]{2,50}?\\s\\d+[A-Za-z]?(?:\\s?\\/\\s?\\d+[A-Za-z]?)?(?:\\s+(?:m\\.|lok\\.)\\s?\\d+)?(?:,?\\s+\\d{2}-\\d{3}\\s+\\p{Lu}[\\p{L}-]+(?:\\s\\p{Lu}[\\p{L}-]+)?)?/gu, 'ADDRESS', norm);\n  claimRx(/(?<!\\d)\\d{2}-\\d{3}\\s+\\p{Lu}[\\p{L}-]+(?:\\s\\p{Lu}[\\p{L}-]+)?/gu, 'ADDRESS', norm);\n\n  // 3. Firmy: rdzenie z nazw wskazanych przez LLM (plus regex po formie prawnej, gdy LLM firmę pominął)\n  const nameValues = by('NAME');\n  const ns = makeStemmer(nameValues, NAME_STOP);\n  const companyValues = by('COMPANY').filter(v => !ns.covers(v)); // wartość rozpoznana też jako osoba zostaje osobą\n  for (const m of text.matchAll(new RegExp(String.raw`(?:\\p{Lu}[\\p{L}\\d&'-]*\\s+){1,5}` + LEGAL, 'gu'))) {\n    if (!companyValues.some(v => m[0].includes(v))) companyValues.push(m[0]);\n  }\n  const cs = makeStemmer(companyValues, COMPANY_STOP);\n  const known = new Set(companyValues.map(cs.keyOfValue).filter(Boolean));\n  const companySpans = s => {\n    const out = [];\n    for (const sp of cs.spans(s)) {\n      if (known.has(cs.keyOf(sp.ids))) out.push(sp);\n      else for (const w of cs.words(s.slice(sp.start, sp.end))) if (known.has(cs.keyOf(w.ids))) out.push({ start: sp.start + w.start, end: sp.start + w.end, ids: w.ids });\n    }\n    return out;\n  };\n  const cSpans = companySpans(text);\n  const cGroups = groupKeys(cSpans.map(sp => cs.keyOf(sp.ids)));\n  const legalRx = new RegExp(String.raw`^\\s+` + LEGAL, 'u');\n  for (const sp of cSpans) {\n    const g = cGroups.of.get(cs.keyOf(sp.ids));\n    const m = text.slice(sp.end, sp.end + 60).match(legalRx);\n    claim(sp.start, sp.end + (m ? m[0].length : 0), 'COMPANY', 'g', g);\n  }\n  claimValues(companyValues, 'COMPANY', norm, true);\n  for (const g of cGroups.groups) {\n    g.type = 'COMPANY';\n    g.original = companyValues.filter(v => text.includes(v) && cs.keyOfValue(v) === g.key).sort((a, b) => b.length - a.length)[0];\n  }\n\n  // 4. Osoby\n  const nSpans = ns.spans(text);\n  const nGroups = groupKeys(nSpans.map(sp => ns.keyOf(sp.ids)));\n  for (const sp of nSpans) claim(sp.start, sp.end, 'NAME', 'g', nGroups.of.get(ns.keyOf(sp.ids)));\n  claimValues(nameValues, 'NAME', norm, true);\n  for (const g of nGroups.groups) {\n    g.type = 'NAME';\n    g.original = nameValues.find(v => text.includes(v) && ns.keyOfValue(v) === g.key); // tylko forma faktycznie obecna w tekście\n    const votes = { m: 0, f: 0 };\n    for (const e of entities) {\n      if (e.type !== 'NAME' || !(e.gender in votes)) continue;\n      const ids = ns.keyOfValue(e.value).split('|').filter(Boolean);\n      if (ids.length && nGroups.groups.filter(x => ids.every(i => x.ids.has(i))).length === 1 && ids.every(i => g.ids.has(i))) votes[e.gender]++;\n    }\n    g.votes = votes;\n  }\n\n  // 5. Podmiana: numeracja identyfikatorów w kolejności wystąpień\n  spans.sort((a, b) => a.start - b.start);\n  const counters = {}, map = new Map();\n  let out = '', pos = 0;\n  for (const sp of spans) {\n    const surface = text.slice(sp.start, sp.end);\n    const id = sp.group || `${sp.type}:${sp.key}`;\n    if (!map.has(id)) {\n      counters[sp.type] = (counters[sp.type] || 0) + 1;\n      const g = sp.group;\n      const original = (g && g.original) || surface;\n      let gender = '';\n      if (sp.type === 'NAME') gender = g && g.votes.m !== g.votes.f ? (g.votes.m > g.votes.f ? 'm' : 'f') : (/a$/i.test(original.split(/[\\s-]/)[0]) ? 'f' : 'm');\n      map.set(id, { placeholder: `[${sp.type}_${counters[sp.type]}]`, type: sp.type, original, gender });\n    }\n    out += text.slice(pos, sp.start) + map.get(id).placeholder;\n    pos = sp.end;\n  }\n  out += text.slice(pos);\n\n  // 6. Kontrola wycieku\n  const bare = out.replace(PH_RX, ' ');\n  let leaks = 0;\n  if (/[\\w.+-]+@[\\w-]+\\.[\\w-]+/.test(bare)) leaks++;\n  if (/(?<!\\d)\\d{10,11}(?!\\d)/.test(bare)) leaks++;\n  if (!ns.empty) leaks += ns.spans(bare).length;\n  if (!cs.empty) leaks += companySpans(bare).length;\n  for (const e of entities) {\n    if (e.value.length < 3 || !bare.includes(e.value)) continue;\n    const wb = e.type === 'NAME' || e.type === 'COMPANY';\n    if (!wb || new RegExp(`(?<![\\\\p{L}\\\\d])${e.value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}(?![\\\\p{L}\\\\d])`, 'u').test(bare)) leaks++;\n  }\n  return { out, entities: [...map.values()], leaks };\n}\n// ---- koniec wspólnej logiki ----\n\nconst items = $input.all();\nif (items.length !== $('Anonimizuj').all().length) return [];\nconst text = $('Webhook').first().json.body.text;\n// Encje z obu przebiegów; anonimizacja liczona od nowa na oryginale, żeby identyfikatory były spójne\nconst r = anonymize(text, [...parseEntities($('Wykryj PII').all()), ...parseEntities(items)]);\nif (r.leaks) throw new Error('Kontrola wycieku: ' + r.leaks + ' fragmentów danych osobowych nadal w tekście. Przerwano przed wysyłką do zewnętrznego AI.');\n\nconst session_id = String($execution.id);\nconst rows = r.entities.map(e => ({ json: { session_id, placeholder: e.placeholder, original: e.original } }));\n// Wiersz-wartownik, gdy brak danych osobowych: utrzymuje przepływ i jest usuwany razem z sesją\nif (!rows.length) rows.push({ json: { session_id, placeholder: '', original: '' } });\nconst by_type = {};\nfor (const e of r.entities) by_type[e.type] = (by_type[e.type] || 0) + 1;\nObject.assign(rows[0].json, {\n  anonymized_text: r.out,\n  genders: Object.fromEntries(r.entities.filter(e => e.type === 'NAME').map(e => [e.placeholder, e.gender])),\n  stats: { chars: text.length, chunks: $('Podziel na fragmenty').all().length, entities: by_type },\n});\nreturn rows;\n"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a7",
+        "name": "Zapisz mapowanie",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          1520,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "insert",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "s2mnAYlDYtVj1DUv",
+            "cachedResultName": "anonimizacja_mapowania"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "session_id": "={{ $json.session_id }}",
+              "placeholder": "={{ $json.placeholder }}",
+              "original": "={{ $json.original }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "session_id",
+                "displayName": "session_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "placeholder",
+                "displayName": "placeholder",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "original",
+                "displayName": "original",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a8",
+        "name": "Przygotuj części raportu",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2400,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Why Code: podział na części z zachowaniem granic zdań i budowa legendy płci per część wymagają pętli\nconst PART = 80000; // znaków na jedno wywołanie zewnętrznego modelu\nconst SINGLE = \"Przygotuj po polsku raport z dokumentu: zwięzłe podsumowanie, główne ustalenia, ustalone działania z osobami odpowiedzialnymi, terminy. Pisz wyłącznie na podstawie dokumentu.\\n\\nTekst jest zanonimizowany. Dane osobowe zastąpiono identyfikatorami w nawiasach kwadratowych: [NAME_1], [COMPANY_1], [ADDRESS_1], [EMAIL_1], [PHONE_1], [PESEL_1], [NIP_1]. Zasady obowiązkowe:\\n1. Nigdy nie zmieniaj typu ani numeru identyfikatora, nie twórz nowych i nie zgaduj, kogo dotyczą.\\n2. Identyfikatory NAME, COMPANY i ADDRESS zapisuj zawsze z kodem przypadka, którego wymaga Twoje zdanie: [NAME_1:M] mianownik (kto? co?), [NAME_1:D] dopełniacz (kogo? czego?), [NAME_1:C] celownik (komu? czemu?), [NAME_1:B] biernik (kogo? co?), [NAME_1:N] narzędnik (z kim? z czym?), [NAME_1:Ms] miejscownik (o kim? o czym?). Zanim wpiszesz kod, zadaj pytanie do identyfikatora w tym zdaniu. Wzorce: \\\"raport przygotował [NAME_1:M]\\\", \\\"odpowiedzialny: [NAME_1:M]\\\", \\\"asystent [NAME_1:D]\\\", \\\"oferta dla [NAME_1:D]\\\", \\\"do [NAME_1:D]\\\", \\\"przekazano [NAME_1:C]\\\", \\\"przez [NAME_1:B]\\\", \\\"spotkanie z [NAME_1:N]\\\", \\\"pomiędzy [COMPANY_1:N] a [NAME_2:N]\\\", \\\"rozmowa o [NAME_1:Ms]\\\", \\\"w [COMPANY_1:Ms]\\\", \\\"przy [ADDRESS_1:Ms]\\\", \\\"adres: [ADDRESS_1:M]\\\".\\n3. Gdy identyfikator stoi po rzeczowniku nazywającym tę samą osobę lub firmę (pan, pani, prezes, asystent, mediator, spółka), dostaje ten sam przypadek co ten rzeczownik: \\\"z panią [NAME_2:N]\\\", \\\"przez prezesa [NAME_1:B]\\\", \\\"dla spółki [COMPANY_1:D]\\\", \\\"do mediatora, pana [NAME_4:D]\\\", \\\"pani [NAME_2:M] odbierze\\\".\\n4. Identyfikatory EMAIL, PHONE, PESEL i NIP zapisuj bez kodu, dokładnie jak w tekście.\\n5. Nie dodawaj podpisu, daty sporządzenia ani pól do uzupełnienia.\\n6. Płeć osób jest podana w legendzie; stosuj ją w czasownikach i przymiotnikach. Nazwy firm poprzedzaj rzeczownikiem, np. \\\"spółka [COMPANY_1:M]\\\", gdy zdanie wymaga uzgodnienia rodzaju.\";\nconst PARTIAL = \"Dostajesz jedną część dłuższego dokumentu. Streść ją po polsku szczegółowo: fakty, ustalenia, działania z osobami odpowiedzialnymi, terminy, kwoty. Nie dodawaj wstępu ani zakończenia.\\n\\nTekst jest zanonimizowany. Dane osobowe zastąpiono identyfikatorami w nawiasach kwadratowych: [NAME_1], [COMPANY_1], [ADDRESS_1], [EMAIL_1], [PHONE_1], [PESEL_1], [NIP_1]. Zasady obowiązkowe:\\n1. Nigdy nie zmieniaj typu ani numeru identyfikatora, nie twórz nowych i nie zgaduj, kogo dotyczą.\\n2. Identyfikatory NAME, COMPANY i ADDRESS zapisuj zawsze z kodem przypadka, którego wymaga Twoje zdanie: [NAME_1:M] mianownik (kto? co?), [NAME_1:D] dopełniacz (kogo? czego?), [NAME_1:C] celownik (komu? czemu?), [NAME_1:B] biernik (kogo? co?), [NAME_1:N] narzędnik (z kim? z czym?), [NAME_1:Ms] miejscownik (o kim? o czym?). Zanim wpiszesz kod, zadaj pytanie do identyfikatora w tym zdaniu. Wzorce: \\\"raport przygotował [NAME_1:M]\\\", \\\"odpowiedzialny: [NAME_1:M]\\\", \\\"asystent [NAME_1:D]\\\", \\\"oferta dla [NAME_1:D]\\\", \\\"do [NAME_1:D]\\\", \\\"przekazano [NAME_1:C]\\\", \\\"przez [NAME_1:B]\\\", \\\"spotkanie z [NAME_1:N]\\\", \\\"pomiędzy [COMPANY_1:N] a [NAME_2:N]\\\", \\\"rozmowa o [NAME_1:Ms]\\\", \\\"w [COMPANY_1:Ms]\\\", \\\"przy [ADDRESS_1:Ms]\\\", \\\"adres: [ADDRESS_1:M]\\\".\\n3. Gdy identyfikator stoi po rzeczowniku nazywającym tę samą osobę lub firmę (pan, pani, prezes, asystent, mediator, spółka), dostaje ten sam przypadek co ten rzeczownik: \\\"z panią [NAME_2:N]\\\", \\\"przez prezesa [NAME_1:B]\\\", \\\"dla spółki [COMPANY_1:D]\\\", \\\"do mediatora, pana [NAME_4:D]\\\", \\\"pani [NAME_2:M] odbierze\\\".\\n4. Identyfikatory EMAIL, PHONE, PESEL i NIP zapisuj bez kodu, dokładnie jak w tekście.\\n5. Nie dodawaj podpisu, daty sporządzenia ani pól do uzupełnienia.\\n6. Płeć osób jest podana w legendzie; stosuj ją w czasownikach i przymiotnikach. Nazwy firm poprzedzaj rzeczownikiem, np. \\\"spółka [COMPANY_1:M]\\\", gdy zdanie wymaga uzgodnienia rodzaju.\";\nconst first = $('Uzupełnij anonimizację').first().json;\nconst text = first.anonymized_text;\nconst parts = [];\nfor (let i = 0; i < text.length;) {\n  let end = Math.min(i + PART, text.length);\n  if (end < text.length) {\n    const w = text.slice(i, end);\n    const cut = Math.max(w.lastIndexOf('\\n\\n'), w.lastIndexOf('. ') + 1, w.lastIndexOf(' '));\n    if (cut > PART / 2) end = i + cut;\n  }\n  parts.push(text.slice(i, end));\n  i = end;\n}\nconst legend = part => {\n  const l = Object.entries(first.genders || {}).filter(([ph]) => part.includes(ph)).map(([ph, g]) => ph + ' – ' + (g === 'f' ? 'kobieta' : 'mężczyzna'));\n  return l.length ? 'Legenda płci osób: ' + l.join('; ') + '.' : 'Legenda płci osób: brak osób.';\n};\nconst legend_all = legend(text);\nreturn parts.map((part, i) => ({ json: { i, total: parts.length, system: parts.length > 1 ? PARTIAL : SINGLE, legend: legend(part), legend_all, part } }));\n"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a9",
+        "name": "Raport częściowy",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          2620,
+          0
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.legend }}\n\nDokument:\n{{ $json.part }}",
+          "messages": {
+            "messageValues": [
+              {
+                "type": "SystemMessagePromptTemplate",
+                "message": "={{ $json.system }}"
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a11",
+        "name": "Komplet części?",
+        "type": "n8n-nodes-base.filter",
+        "typeVersion": 2.2,
+        "position": [
+          2940,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c10",
+                "leftValue": "={{ $input.all().length }}",
+                "rightValue": "={{ $('Przygotuj części raportu').all().length }}",
+                "operator": {
+                  "type": "number",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a13",
+        "name": "Wiele części?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3160,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c12",
+                "leftValue": "={{ $('Przygotuj części raportu').all().length }}",
+                "rightValue": 1,
+                "operator": {
+                  "type": "number",
+                  "operation": "gt"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a14",
+        "name": "Raport końcowy",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          3380,
+          -180
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('Przygotuj części raportu').first().json.legend_all }}\n\nStreszczenia kolejnych części dokumentu:\n\n{{ $('Raport częściowy').all().map(i => i.json.text).join('\\n\\n---\\n\\n') }}",
+          "messages": {
+            "messageValues": [
+              {
+                "type": "SystemMessagePromptTemplate",
+                "message": "Dostajesz streszczenia kolejnych części jednego dokumentu. Przygotuj po polsku jeden spójny raport z całości: zwięzłe podsumowanie, główne ustalenia, ustalone działania z osobami odpowiedzialnymi, terminy. Usuń powtórzenia.\n\nTekst jest zanonimizowany. Dane osobowe zastąpiono identyfikatorami w nawiasach kwadratowych: [NAME_1], [COMPANY_1], [ADDRESS_1], [EMAIL_1], [PHONE_1], [PESEL_1], [NIP_1]. Zasady obowiązkowe:\n1. Nigdy nie zmieniaj typu ani numeru identyfikatora, nie twórz nowych i nie zgaduj, kogo dotyczą.\n2. Identyfikatory NAME, COMPANY i ADDRESS zapisuj zawsze z kodem przypadka, którego wymaga Twoje zdanie: [NAME_1:M] mianownik (kto? co?), [NAME_1:D] dopełniacz (kogo? czego?), [NAME_1:C] celownik (komu? czemu?), [NAME_1:B] biernik (kogo? co?), [NAME_1:N] narzędnik (z kim? z czym?), [NAME_1:Ms] miejscownik (o kim? o czym?). Zanim wpiszesz kod, zadaj pytanie do identyfikatora w tym zdaniu. Wzorce: \"raport przygotował [NAME_1:M]\", \"odpowiedzialny: [NAME_1:M]\", \"asystent [NAME_1:D]\", \"oferta dla [NAME_1:D]\", \"do [NAME_1:D]\", \"przekazano [NAME_1:C]\", \"przez [NAME_1:B]\", \"spotkanie z [NAME_1:N]\", \"pomiędzy [COMPANY_1:N] a [NAME_2:N]\", \"rozmowa o [NAME_1:Ms]\", \"w [COMPANY_1:Ms]\", \"przy [ADDRESS_1:Ms]\", \"adres: [ADDRESS_1:M]\".\n3. Gdy identyfikator stoi po rzeczowniku nazywającym tę samą osobę lub firmę (pan, pani, prezes, asystent, mediator, spółka), dostaje ten sam przypadek co ten rzeczownik: \"z panią [NAME_2:N]\", \"przez prezesa [NAME_1:B]\", \"dla spółki [COMPANY_1:D]\", \"do mediatora, pana [NAME_4:D]\", \"pani [NAME_2:M] odbierze\".\n4. Identyfikatory EMAIL, PHONE, PESEL i NIP zapisuj bez kodu, dokładnie jak w tekście.\n5. Nie dodawaj podpisu, daty sporządzenia ani pól do uzupełnienia.\n6. Płeć osób jest podana w legendzie; stosuj ją w czasownikach i przymiotnikach. Nazwy firm poprzedzaj rzeczownikiem, np. \"spółka [COMPANY_1:M]\", gdy zdanie wymaga uzgodnienia rodzaju."
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "onError": "continueErrorOutput",
+        "executeOnce": true
+      },
+      {
+        "id": "a15",
+        "name": "Pobierz mapowanie",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          3700,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "s2mnAYlDYtVj1DUv",
+            "cachedResultName": "anonimizacja_mapowania"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "session_id",
+                "condition": "eq",
+                "keyValue": "={{ String($execution.id) }}"
+              }
+            ]
+          },
+          "returnAll": true
+        },
+        "onError": "continueErrorOutput",
+        "executeOnce": true
+      },
+      {
+        "id": "a16",
+        "name": "Przygotuj odmianę",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3920,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Why Code: wyłuskanie z raportu unikalnych par (identyfikator, przypadek) i pakowanie ich w partie dla lokalnego modelu\nconst report = String(($('Przygotuj części raportu').all().length > 1 ? $('Raport końcowy').first() : $('Raport częściowy').first()).json.text || '');\nconst TAG = /\\[(NAME|COMPANY|ADDRESS|EMAIL|PHONE|PESEL|NIP)_(\\d+)(?::(M|D|C|B|N|Ms|W))?\\]/g;\nconst TYP = { NAME: 'osoba', COMPANY: 'firma', ADDRESS: 'adres' };\n// Klucz formy: identyfikator + przypadek. Osoba i firma bez kodu to mianownik; adres bez kodu zostaje w formie z dokumentu\nconst formKey = (type, n, c) => !TYP[type] || (type === 'ADDRESS' && !c) ? null : '[' + type + '_' + n + ']:' + (c || 'M');\nconst orig = new Map($input.all().map(i => i.json).filter(r => r.placeholder).map(r => [r.placeholder, r.original]));\nconst genders = $('Uzupełnij anonimizację').first().json.genders || {};\nconst CASES = { M: 'mianownik', D: 'dopełniacz', C: 'celownik', B: 'biernik', N: 'narzędnik', Ms: 'miejscownik', W: 'wołacz' };\nconst pairs = new Map();\nfor (const [, type, n, c] of report.matchAll(TAG)) {\n  const ph = '[' + type + '_' + n + ']';\n  const key = formKey(type, n, c);\n  if (!key || !orig.has(ph) || pairs.has(key)) continue;\n  pairs.set(key, { typ: TYP[type], ...(type === 'NAME' ? { płeć: genders[ph] === 'f' ? 'kobieta' : 'mężczyzna' } : {}), tekst: orig.get(ph), przypadek: CASES[c || 'M'] });\n}\nconst all = [...pairs.entries()];\nif (!all.length) return [{ json: { none: true } }];\nconst BATCH = 8, out = [];\nfor (let i = 0; i < all.length; i += BATCH) {\n  const batch = all.slice(i, i + BATCH);\n  out.push({ json: { none: false, keys: batch.map(([k]) => k), prompt: JSON.stringify(batch.map(([, p], j) => ({ id: String(j + 1), ...p }))) } });\n}\nreturn out;\n"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a18",
+        "name": "Jest co odmieniać?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          4140,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c17",
+                "leftValue": "={{ $json.none }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "false",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a19",
+        "name": "Odmień (Ollama)",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          4360,
+          -180
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.prompt }}",
+          "messages": {
+            "messageValues": [
+              {
+                "type": "SystemMessagePromptTemplate",
+                "message": "Odmieniasz wyrażenia przez przypadki w języku polskim. Dostajesz listę JSON pozycji o polach id, typ, płeć (tylko dla osób), tekst, przypadek. Dla każdej pozycji podaj tekst w żądanym przypadku. Tekst wejściowy może stać w dowolnym przypadku: najpierw ustal jego mianownik, potem odmień.\nZasady: zachowaj liczbę wyrazów, wielkość liter, łączniki i cyfry. Formę prawną firmy (Sp. z o.o., S.A. itp.) oraz nazwy nieodmienne przepisz bez zmian. Adres w mianowniku to zwykły zapis adresowy, np. \"ul. Długa 15/3, 31-147 Kraków\".\nZwróć WYŁĄCZNIE JSON w formacie {\"wyniki\":[{\"id\":\"1\",\"forma\":\"...\"}]}, po jednym wyniku na każdą pozycję, z tym samym id."
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "a20",
+        "name": "Deanonimizuj",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4680,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Why Code: podmiana wielu identyfikatorów naraz z walidacją form odmienionych przez lokalny model; brak natywnego odpowiednika\nconst report = String(($('Przygotuj części raportu').all().length > 1 ? $('Raport końcowy').first() : $('Raport częściowy').first()).json.text || '');\nconst TAG = /\\[(NAME|COMPANY|ADDRESS|EMAIL|PHONE|PESEL|NIP)_(\\d+)(?::(M|D|C|B|N|Ms|W))?\\]/g;\nconst TYP = { NAME: 'osoba', COMPANY: 'firma', ADDRESS: 'adres' };\n// Klucz formy: identyfikator + przypadek. Osoba i firma bez kodu to mianownik; adres bez kodu zostaje w formie z dokumentu\nconst formKey = (type, n, c) => !TYP[type] || (type === 'ADDRESS' && !c) ? null : '[' + type + '_' + n + ']:' + (c || 'M');\nconst orig = new Map($('Pobierz mapowanie').all().map(i => i.json).filter(r => r.placeholder).map(r => [r.placeholder, r.original]));\n// Forma z lokalnego modelu jest przyjmowana tylko wtedy, gdy jest odmianą oryginału (te same wyrazy, wspólny początek, te same cyfry)\nconst sameish = (a, b) => {\n  const ta = a.match(/[\\p{L}\\d]+/gu) || [], tb = b.match(/[\\p{L}\\d]+/gu) || [];\n  return ta.length === tb.length && ta.every((x, i) => {\n    const y = tb[i];\n    const xl = x.toLowerCase(), yl = y.toLowerCase();\n    if (xl === yl) return true;\n    if (/\\d/.test(x) || /\\d/.test(y)) return false;\n    let p = 0;\n    while (p < xl.length && p < yl.length && xl[p] === yl[p]) p++;\n    return p >= Math.max(2, Math.min(xl.length, yl.length) - 3) && Math.abs(xl.length - yl.length) <= 4;\n  });\n};\nconst forms = new Map();\nconst prep = $('Przygotuj odmianę').all();\nif (!prep[0].json.none) {\n  const res = $('Odmień (Ollama)').all();\n  prep.forEach((p, idx) => {\n    let wyniki = [];\n    try {\n      const j = res[idx].json;\n      const raw = Array.isArray(j.wyniki) ? j : (j.text ?? j.output ?? j.response);\n      wyniki = (typeof raw === 'string' ? JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) : raw).wyniki || [];\n    } catch (e) { /* brak form: użyta zostanie forma z mapowania */ }\n    p.json.keys.forEach((key, j) => {\n      const w = wyniki.find(x => String(x?.id) === String(j + 1));\n      const forma = String(w?.forma ?? '').trim().replace(/!+$/, '');\n      if (forma && sameish(orig.get(key.slice(0, key.lastIndexOf(':'))), forma)) forms.set(key, forma);\n    });\n  });\n}\nlet replaced = 0, inflected = 0, inflection_fallbacks = 0;\nconst out = report.replace(TAG, (m, type, n, c) => {\n  const ph = '[' + type + '_' + n + ']';\n  if (!orig.has(ph)) return m;\n  replaced++;\n  const key = formKey(type, n, c);\n  if (!key) return orig.get(ph);\n  const f = forms.get(key);\n  if (f) inflected++; else inflection_fallbacks++;\n  return f ?? orig.get(ph);\n});\nconst first = $('Uzupełnij anonimizację').first().json;\nreturn [{ json: {\n  session_id: first.session_id,\n  report: out,\n  anonymized_pdf: 'dokumenty/zanonimizowane/' + $('Utwórz PDF').first().json.pdf_file,\n  stats: { ...first.stats, report_parts: $('Przygotuj części raportu').all().length, placeholders_replaced: replaced, forms_inflected: inflected, inflection_fallbacks },\n  unresolved_placeholders: out.match(/\\[(?:NAME|COMPANY|ADDRESS|EMAIL|PHONE|PESEL|NIP)_\\d+(?::\\w+)?\\]/g) || [],\n} }];\n"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a21",
+        "name": "Usuń mapowanie",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          4900,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "deleteRows",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "s2mnAYlDYtVj1DUv",
+            "cachedResultName": "anonimizacja_mapowania"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "session_id",
+                "condition": "eq",
+                "keyValue": "={{ String($execution.id) }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "executeOnce": true
+      },
+      {
+        "id": "a22",
+        "name": "Zwróć raport",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          5120,
+          0
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($('Deanonimizuj').first().json) }}",
+          "options": {}
+        },
+        "executeOnce": true
+      },
+      {
+        "id": "a23",
+        "name": "Ollama detekcja (gemma4:e4b)",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+        "typeVersion": 1,
+        "position": [
+          700,
+          240
+        ],
+        "parameters": {
+          "model": "gemma4:e4b",
+          "options": {
+            "format": "json",
+            "think": false,
+            "temperature": 0,
+            "numCtx": 8192,
+            "keepAlive": "10m"
+          }
+        },
+        "credentials": {
+          "ollamaApi": {
+            "id": "ToHQYeWCfVmGq5qp",
+            "name": "Ollama account"
+          }
+        }
+      },
+      {
+        "id": "a24",
+        "name": "Ollama odmiana (gemma4:26b)",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+        "typeVersion": 1,
+        "position": [
+          4360,
+          240
+        ],
+        "parameters": {
+          "model": "gemma4:26b",
+          "options": {
+            "format": "json",
+            "think": false,
+            "temperature": 0,
+            "numCtx": 4096,
+            "keepAlive": "30s"
+          }
+        },
+        "credentials": {
+          "ollamaApi": {
+            "id": "ToHQYeWCfVmGq5qp",
+            "name": "Ollama account"
+          }
+        }
+      },
+      {
+        "id": "a25",
+        "name": "OpenAI (zewnętrzny)",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2,
+        "position": [
+          3000,
+          240
+        ],
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4.1"
+          },
+          "options": {}
+        },
+        "credentials": {
+          "openAiApi": {
+            "id": "LScYyYk8KRHKlGjB",
+            "name": "OpenAI twoj.email@example.com key"
+          }
+        }
+      },
+      {
+        "id": "a26",
+        "name": "Zwróć błąd anonimizacji",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          1300,
+          460
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ error: $json.error || 'Anonimizacja nie powiodła się. Nic nie wysłano do zewnętrznego AI.' }) }}",
+          "options": {
+            "responseCode": "={{ String($json.error || '').includes('Brak pola') ? 400 : 500 }}"
+          }
+        },
+        "executeOnce": true
+      },
+      {
+        "id": "a27",
+        "name": "Usuń mapowanie (błąd)",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          3700,
+          460
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "deleteRows",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "s2mnAYlDYtVj1DUv",
+            "cachedResultName": "anonimizacja_mapowania"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "session_id",
+                "condition": "eq",
+                "keyValue": "={{ String($execution.id) }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "executeOnce": true
+      },
+      {
+        "id": "a28",
+        "name": "Zwróć błąd 502",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          3920,
+          460
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "{\"error\":\"Przetwarzanie po anonimizacji nie powiodło się. Mapowanie usunięte.\"}",
+          "options": {
+            "responseCode": 502
+          }
+        },
+        "executeOnce": true
+      },
+      {
+        "id": "a29",
+        "name": "Wczytaj font",
+        "type": "n8n-nodes-base.readWriteFile",
+        "typeVersion": 1,
+        "position": [
+          1740,
+          0
+        ],
+        "parameters": {
+          "operation": "read",
+          "fileSelector": "/data/shared/anonimizacja/_zasoby/Courier_New.ttf",
+          "options": {}
+        },
+        "onError": "continueErrorOutput",
+        "executeOnce": true
+      },
+      {
+        "id": "a30",
+        "name": "Utwórz PDF",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1960,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Why Code: n8n nie ma natywnego węzła tworzącego PDF, a biblioteki zewnętrzne w Code są zablokowane; PDF jest składany ręcznie, lokalnie, bez usług zewnętrznych\nconst first = $('Uzupełnij anonimizację').first().json;\nconst body = $('Webhook').first().json.body || {};\nconst docName = String(body.name || 'dokument-' + $execution.id).replace(/[^\\p{L}\\d._ -]/gu, '_').slice(0, 120);\nconst fileName = docName + '.zanonimizowany.pdf';\n\n// Font TrueType (Courier New) jest osadzany w PDF, żeby polskie znaki wyglądały tak samo w każdej przeglądarce\nlet font;\ntry { font = await this.helpers.getBinaryDataBuffer(0, 'data'); } catch (e) { font = Buffer.from($input.first().binary.data.data, 'base64'); }\nconst table = tag => {\n  for (let i = 0, n = font.readUInt16BE(4); i < n; i++) {\n    const o = 12 + i * 16;\n    if (font.toString('latin1', o, o + 4) === tag) return font.readUInt32BE(o + 8);\n  }\n  throw new Error('Font: brak tablicy ' + tag);\n};\nconst head = table('head'), hhea = table('hhea'), cmap = table('cmap');\nconst scale = 1000 / font.readUInt16BE(head + 18);\nconst bbox = [36, 38, 40, 42].map(o => Math.round(font.readInt16BE(head + o) * scale));\nconst ascent = Math.round(font.readInt16BE(hhea + 4) * scale), descent = Math.round(font.readInt16BE(hhea + 6) * scale);\nlet sub = 0;\nfor (let i = 0, n = font.readUInt16BE(cmap + 2); i < n; i++) {\n  const o = cmap + 4 + i * 8;\n  if (font.readUInt16BE(o) === 3 && font.readUInt16BE(o + 2) === 1) sub = cmap + font.readUInt32BE(o + 4);\n}\nif (!sub || font.readUInt16BE(sub) !== 4) throw new Error('Font: brak tablicy cmap w formacie 4');\nconst segX2 = font.readUInt16BE(sub + 6);\nconst glyphOf = cp => {\n  for (let s = 0; s < segX2; s += 2) {\n    if (cp > font.readUInt16BE(sub + 14 + s)) continue;\n    const start = font.readUInt16BE(sub + 16 + segX2 + s);\n    if (cp < start) return 0;\n    const delta = font.readUInt16BE(sub + 16 + 2 * segX2 + s), roPos = sub + 16 + 3 * segX2 + s, ro = font.readUInt16BE(roPos);\n    if (!ro) return (cp + delta) & 0xffff;\n    const g = font.readUInt16BE(roPos + ro + 2 * (cp - start));\n    return g ? (g + delta) & 0xffff : 0;\n  }\n  return 0;\n};\nconst used = new Map(); // glif -> znak (do tablicy ToUnicode: kopiowanie i wyszukiwanie tekstu w PDF)\nconst fallback = glyphOf(63);\nconst hex = s => {\n  let out = '';\n  for (const ch of s.replace(/[\\t ]/g, ' ')) {\n    const cp = ch.codePointAt(0);\n    const g = (cp < 0x10000 && glyphOf(cp)) || fallback;\n    if (!used.has(g)) used.set(g, g === fallback && cp !== 63 ? 63 : cp);\n    out += g.toString(16).padStart(4, '0');\n  }\n  return '<' + out + '>';\n};\n\n// Łamanie wierszy: Courier New 10 pt, 84 znaki w wierszu, 56 wierszy na stronie A4\nconst COLS = 84, ROWS = 56;\nconst lines = [];\nfor (const para of String(first.anonymized_text || '').replace(/\\r/g, '').split('\\n')) {\n  let line = '';\n  for (let word of para.split(' ')) {\n    while (word.length > COLS) { if (line) { lines.push(line); line = ''; } lines.push(word.slice(0, COLS)); word = word.slice(COLS); }\n    if ((line ? line.length + 1 : 0) + word.length > COLS) { lines.push(line); line = word; }\n    else line = line ? line + ' ' + word : word;\n  }\n  lines.push(line);\n}\nconst pages = [];\nfor (let i = 0; i < lines.length; i += ROWS) pages.push(lines.slice(i, i + ROWS));\nif (!pages.length) pages.push(['']);\n\nconst objs = [];\nconst add = s => { objs.push(s); return objs.length; };\nconst stream = (dict, data) => '<< ' + dict + ' /Length ' + data.length + ' >>\\nstream\\n' + data + '\\nendstream';\nadd('<< /Type /Catalog /Pages 2 0 R >>');\nadd(''); // 2: drzewo stron, uzupełniane niżej\nadd('<< /Type /Font /Subtype /Type0 /BaseFont /CourierNewPSMT /Encoding /Identity-H /DescendantFonts [4 0 R] /ToUnicode 7 0 R >>');\nadd('<< /Type /Font /Subtype /CIDFontType2 /BaseFont /CourierNewPSMT /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 5 0 R /DW 600 /CIDToGIDMap /Identity >>');\nadd('<< /Type /FontDescriptor /FontName /CourierNewPSMT /Flags 33 /FontBBox [' + bbox.join(' ') + '] /ItalicAngle 0 /Ascent ' + ascent + ' /Descent ' + descent + ' /CapHeight 571 /StemV 80 /FontFile2 6 0 R >>');\nadd(stream('/Length1 ' + font.length, font.toString('latin1')));\nadd(''); // 7: ToUnicode, uzupełniane po złożeniu stron\nconst kids = [];\npages.forEach((pl, p) => {\n  const head = hex(docName + '  |  DOKUMENT ZANONIMIZOWANY – do weryfikacji  |  sesja ' + first.session_id + '  |  strona ' + (p + 1) + ' z ' + pages.length);\n  const content = add(stream('', 'BT /F1 7.5 Tf 45 806 Td ' + head + ' Tj ET\\nBT /F1 10 Tf 13 TL 45 780 Td\\n' + pl.map(l => hex(l) + ' Tj T*').join('\\n') + '\\nET'));\n  kids.push(add('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ' + content + ' 0 R >>'));\n});\nobjs[1] = '<< /Type /Pages /Kids [' + kids.map(k => k + ' 0 R').join(' ') + '] /Count ' + kids.length + ' >>';\nconst h4 = n => n.toString(16).padStart(4, '0');\nconst chars = [...used.entries()].map(([g, cp]) => '<' + h4(g) + '> <' + h4(cp) + '>');\nlet bf = '';\nfor (let i = 0; i < chars.length; i += 100) { const c = chars.slice(i, i + 100); bf += c.length + ' beginbfchar\\n' + c.join('\\n') + '\\nendbfchar\\n'; }\nobjs[6] = stream('', '/CIDInit /ProcSet findresource begin\\n12 dict begin\\nbegincmap\\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\\n/CMapName /Adobe-Identity-UCS def\\n/CMapType 2 def\\n1 begincodespacerange\\n<0000> <ffff>\\nendcodespacerange\\n' + bf + 'endcmap\\nCMapName currentdict /CMap defineresource pop\\nend\\nend');\n\nlet pdf = '%PDF-1.4\\n';\nconst offsets = [];\nobjs.forEach((o, i) => { offsets.push(pdf.length); pdf += (i + 1) + ' 0 obj\\n' + o + '\\nendobj\\n'; });\nconst xref = pdf.length;\npdf += 'xref\\n0 ' + (objs.length + 1) + '\\n0000000000 65535 f \\n' + offsets.map(o => String(o).padStart(10, '0') + ' 00000 n \\n').join('');\npdf += 'trailer\\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\\nstartxref\\n' + xref + '\\n%%EOF\\n';\n\nreturn [{\n  json: { pdf_file: fileName, pdf_pages: pages.length },\n  binary: { data: { data: Buffer.from(pdf, 'latin1').toString('base64'), mimeType: 'application/pdf', fileName, fileExtension: 'pdf' } },\n}];\n"
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a31",
+        "name": "Zapisz PDF",
+        "type": "n8n-nodes-base.readWriteFile",
+        "typeVersion": 1,
+        "position": [
+          2180,
+          0
+        ],
+        "parameters": {
+          "operation": "write",
+          "fileName": "=/data/shared/anonimizacja/zanonimizowane/{{ $json.pdf_file }}",
+          "dataPropertyName": "data",
+          "options": {}
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "id": "a32",
+        "name": "Uruchom ręcznie",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          -460
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "a33",
+        "name": "Wczytaj gotowe raporty",
+        "type": "n8n-nodes-base.readWriteFile",
+        "typeVersion": 1,
+        "position": [
+          220,
+          -460
+        ],
+        "parameters": {
+          "operation": "read",
+          "fileSelector": "/data/shared/anonimizacja/raporty/*.raport.md",
+          "options": {}
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "a34",
+        "name": "Wczytaj dokumenty",
+        "type": "n8n-nodes-base.readWriteFile",
+        "typeVersion": 1,
+        "position": [
+          440,
+          -460
+        ],
+        "parameters": {
+          "operation": "read",
+          "fileSelector": "/data/shared/anonimizacja/*.{txt,md,pdf}",
+          "options": {}
+        },
+        "executeOnce": true
+      },
+      {
+        "id": "a36",
+        "name": "Jeszcze bez raportu",
+        "type": "n8n-nodes-base.filter",
+        "typeVersion": 2.2,
+        "position": [
+          660,
+          -460
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c35",
+                "leftValue": "={{ $('Wczytaj gotowe raporty').all().some(i => i.json.fileName === $json.fileName + '.raport.md') }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "false",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a38",
+        "name": "Czy PDF?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          880,
+          -460
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c37",
+                "leftValue": "={{ $json.fileName.toLowerCase().endsWith('.pdf') }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a39",
+        "name": "Wyodrębnij tekst z PDF",
+        "type": "n8n-nodes-base.extractFromFile",
+        "typeVersion": 1,
+        "position": [
+          1100,
+          -560
+        ],
+        "parameters": {
+          "operation": "pdf",
+          "binaryPropertyName": "data",
+          "options": {}
+        }
+      },
+      {
+        "id": "a40",
+        "name": "Wyodrębnij tekst z pliku",
+        "type": "n8n-nodes-base.extractFromFile",
+        "typeVersion": 1,
+        "position": [
+          1100,
+          -360
+        ],
+        "parameters": {
+          "operation": "text",
+          "binaryPropertyName": "data",
+          "destinationKey": "text",
+          "options": {}
+        }
+      },
+      {
+        "id": "a41",
+        "name": "Uruchom anonimizację",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1340,
+          -460
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://localhost:5678/webhook/anonimizacja-raport",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ text: $json.text, name: $('Wczytaj dokumenty').item.json.fileName }) }}",
+          "options": {
+            "timeout": 7200000,
+            "batching": {
+              "batch": {
+                "batchSize": 1,
+                "batchInterval": 0
+              }
+            }
+          }
+        },
+        "onError": "continueRegularOutput",
+        "notes": "Why HTTP: gałąź ręczna wywołuje webhook tego samego workflowu, żeby każdy plik miał osobne wykonanie i osobną sesję mapowania (Execute Workflow wymagałby drugiego workflowu). Pliki idą po kolei, bo lokalne modele nie obsłużą równoległych przebiegów."
+      },
+      {
+        "id": "a43",
+        "name": "Jest raport?",
+        "type": "n8n-nodes-base.filter",
+        "typeVersion": 2.2,
+        "position": [
+          1560,
+          -460
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c42",
+                "leftValue": "={{ $json.report }}",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a44",
+        "name": "Raport do pliku",
+        "type": "n8n-nodes-base.convertToFile",
+        "typeVersion": 1.1,
+        "position": [
+          1780,
+          -460
+        ],
+        "parameters": {
+          "operation": "toText",
+          "sourceProperty": "report",
+          "options": {
+            "fileName": "={{ $('Wczytaj dokumenty').item.json.fileName }}.raport.md"
+          }
+        }
+      },
+      {
+        "id": "a45",
+        "name": "Zapisz raport",
+        "type": "n8n-nodes-base.readWriteFile",
+        "typeVersion": 1,
+        "position": [
+          2000,
+          -460
+        ],
+        "parameters": {
+          "operation": "write",
+          "fileName": "=/data/shared/anonimizacja/raporty/{{ $('Wczytaj dokumenty').item.json.fileName }}.raport.md",
+          "dataPropertyName": "data",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Podziel na fragmenty",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Podziel na fragmenty": {
+        "main": [
+          [
+            {
+              "node": "Wykryj PII",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Zwróć błąd anonimizacji",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wykryj PII": {
+        "main": [
+          [
+            {
+              "node": "Anonimizuj",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Zwróć błąd anonimizacji",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Anonimizuj": {
+        "main": [
+          [
+            {
+              "node": "Weryfikuj anonimizację",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Zwróć błąd anonimizacji",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Weryfikuj anonimizację": {
+        "main": [
+          [
+            {
+              "node": "Uzupełnij anonimizację",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Zwróć błąd anonimizacji",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Uzupełnij anonimizację": {
+        "main": [
+          [
+            {
+              "node": "Zapisz mapowanie",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Zwróć błąd anonimizacji",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Zapisz mapowanie": {
+        "main": [
+          [
+            {
+              "node": "Wczytaj font",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Przygotuj części raportu": {
+        "main": [
+          [
+            {
+              "node": "Raport częściowy",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Raport częściowy": {
+        "main": [
+          [
+            {
+              "node": "Komplet części?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Komplet części?": {
+        "main": [
+          [
+            {
+              "node": "Wiele części?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wiele części?": {
+        "main": [
+          [
+            {
+              "node": "Raport końcowy",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Pobierz mapowanie",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Raport końcowy": {
+        "main": [
+          [
+            {
+              "node": "Pobierz mapowanie",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pobierz mapowanie": {
+        "main": [
+          [
+            {
+              "node": "Przygotuj odmianę",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Przygotuj odmianę": {
+        "main": [
+          [
+            {
+              "node": "Jest co odmieniać?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Jest co odmieniać?": {
+        "main": [
+          [
+            {
+              "node": "Odmień (Ollama)",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Deanonimizuj",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Odmień (Ollama)": {
+        "main": [
+          [
+            {
+              "node": "Deanonimizuj",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Deanonimizuj": {
+        "main": [
+          [
+            {
+              "node": "Usuń mapowanie",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Usuń mapowanie": {
+        "main": [
+          [
+            {
+              "node": "Zwróć raport",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Usuń mapowanie (błąd)": {
+        "main": [
+          [
+            {
+              "node": "Zwróć błąd 502",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ollama detekcja (gemma4:e4b)": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Wykryj PII",
+              "type": "ai_languageModel",
+              "index": 0
+            },
+            {
+              "node": "Weryfikuj anonimizację",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ollama odmiana (gemma4:26b)": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Odmień (Ollama)",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI (zewnętrzny)": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Raport częściowy",
+              "type": "ai_languageModel",
+              "index": 0
+            },
+            {
+              "node": "Raport końcowy",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wczytaj font": {
+        "main": [
+          [
+            {
+              "node": "Utwórz PDF",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Utwórz PDF": {
+        "main": [
+          [
+            {
+              "node": "Zapisz PDF",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Zapisz PDF": {
+        "main": [
+          [
+            {
+              "node": "Przygotuj części raportu",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Usuń mapowanie (błąd)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Uruchom ręcznie": {
+        "main": [
+          [
+            {
+              "node": "Wczytaj gotowe raporty",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wczytaj gotowe raporty": {
+        "main": [
+          [
+            {
+              "node": "Wczytaj dokumenty",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wczytaj dokumenty": {
+        "main": [
+          [
+            {
+              "node": "Jeszcze bez raportu",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Jeszcze bez raportu": {
+        "main": [
+          [
+            {
+              "node": "Czy PDF?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Czy PDF?": {
+        "main": [
+          [
+            {
+              "node": "Wyodrębnij tekst z PDF",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Wyodrębnij tekst z pliku",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wyodrębnij tekst z PDF": {
+        "main": [
+          [
+            {
+              "node": "Uruchom anonimizację",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wyodrębnij tekst z pliku": {
+        "main": [
+          [
+            {
+              "node": "Uruchom anonimizację",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Uruchom anonimizację": {
+        "main": [
+          [
+            {
+              "node": "Jest raport?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Jest raport?": {
+        "main": [
+          [
+            {
+              "node": "Raport do pliku",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Raport do pliku": {
+        "main": [
+          [
+            {
+              "node": "Zapisz raport",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false,
+      "saveExecutionProgress": false,
+      "binaryMode": "separate"
+    },
+    "staticData": null,
+    "meta": null,
+    "nodeGroups": [],
+    "pinData": {},
+    "versionId": "0e47541d-0266-4cf7-9465-bfc2626a960c",
+    "activeVersionId": "0e47541d-0266-4cf7-9465-bfc2626a960c",
+    "versionCounter": 14,
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-11-15T13:37:14.141Z",
+        "createdAt": "2026-11-15T13:37:14.141Z",
+        "role": "workflow:owner",
+        "workflowId": "t2bGisJZ9WtC9y67",
+        "projectId": "LHpcXghVcNevcNCm",
+        "project": {
+          "updatedAt": "2026-08-11T14:37:20.878Z",
+          "createdAt": "2026-08-11T14:35:23.003Z",
+          "id": "LHpcXghVcNevcNCm",
+          "name": "Twoje Imie <twoj.email@example.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "b0fd05d2-e022-407c-bd1e-725d0d327776"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

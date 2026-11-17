@@ -1,0 +1,29 @@
+{{MIEJSCE|Gliwice}}, dnia 3 marca 2025 r.
+
+{{FIRMA|Kancelaria Radcy Prawnego Ewa Sokołowska}}
+{{ADRES|ul. Zwycięstwa 27, 44-100 Gliwice}}
+tel. {{TELEFON|32 230 11 22}}, {{EMAIL|kancelaria@sokolowska-radca.example}}
+
+Pan {{OSOBA|Krzysztof Baran}}
+prowadzący działalność gospodarczą pod firmą {{FIRMA|Usługi Remontowo-Budowlane BARAN-BUD Krzysztof Baran}}
+{{ADRES|ul. Jana Pawła II 8 m. 14, 41-800 Zabrze}}
+NIP {{NIP|@3}}
+
+PRZEDSĄDOWE WEZWANIE DO ZAPŁATY
+
+Działając w imieniu mojego mocodawcy, spółki {{FIRMA|Stalmet Śląsk sp. z o.o. sp. k.}} z siedzibą w {{MIEJSCE|Gliwicach}} (pełnomocnictwo w załączeniu), wzywam Pana do zapłaty kwoty 47 318,22 zł wraz z odsetkami ustawowymi za opóźnienie w transakcjach handlowych.
+
+Na powyższą kwotę składają się należności z faktur VAT nr {{SYGNATURA|FV/2024/11/0452}} oraz nr {{SYGNATURA|FV/2024/12/0031}}, wystawionych przez {{FIRMA|Stalmet Śląsk}} za dostawę prętów zbrojeniowych na budowę przy {{ADRES|ul. Chorzowskiej 112 w Gliwicach}}. Odbiór towaru potwierdził Pana pracownik, {{OSOBA|Dariusz Wróbel}}, podpisując dokumenty WZ.
+
+Wskazuję, że w rozmowie telefonicznej z dnia 12 lutego 2025 r. zobowiązał się Pan wobec pani {{OSOBA|Ireny Stalmach}}, głównej księgowej {{FIRMA|Stalmetu}}, do spłaty zadłużenia do końca lutego. Zobowiązanie to nie zostało wykonane. Pani {{OSOBA|Stalmach}} dwukrotnie przypominała o płatności wiadomościami wysłanymi na adres {{EMAIL|biuro@baran-bud.example}}.
+
+Wpłaty należy dokonać w terminie 7 dni od otrzymania niniejszego pisma na rachunek bankowy mojego mocodawcy: {{IBAN|@2:pl}}.
+
+W razie bezskutecznego upływu terminu sprawa zostanie skierowana na drogę postępowania sądowego przed {{FIRMA|Sądem Rejonowym w Gliwicach}}, co narazi Pana na dodatkowe koszty. Informuję również, że przeciwko Panu toczy się już postępowanie o sygn. akt {{SYGNATURA|V GC 512/24}} z powództwa {{FIRMA|Betoniarni Zabrzańskiej S.A.}}, a dane o zadłużeniu mogą zostać przekazane do Krajowego Rejestru Długów.
+
+Dla porządku podaję dane dłużnika ustalone na podstawie umowy: {{OSOBA|Krzysztof Jan Baran}}, PESEL {{PESEL|@1}}, legitymujący się dowodem osobistym {{DOWOD|@1}}, zamieszkały w {{MIEJSCE|Zabrzu}}.
+
+Z poważaniem
+radca prawny {{OSOBA|Ewa Sokołowska}}
+
+Do wiadomości: {{OSOBA|Irena Stalmach}}, {{EMAIL|i.stalmach@stalmet.example}}

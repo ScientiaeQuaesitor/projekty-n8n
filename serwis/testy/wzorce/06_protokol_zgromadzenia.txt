@@ -1,0 +1,37 @@
+PROTOKÓŁ
+z Nadzwyczajnego Zgromadzenia Wspólników spółki {{FIRMA|Winnica Trzy Wzgórza spółka z ograniczoną odpowiedzialnością}} z siedzibą w {{MIEJSCE|Zielonej Górze}}
+(KRS: {{KRS|@3}}, REGON: {{REGON|@3}}, NIP: {{NIP|@6}})
+
+odbytego w dniu 28 czerwca 2025 r. w siedzibie Spółki przy {{ADRES|ul. Wrocławskiej 17A, 65-427 Zielona Góra}}.
+
+§ 1. Otwarcie
+
+Zgromadzenie otworzył Prezes Zarządu {{OSOBA|Radosław Wilczyński}}, który stwierdził, że na Zgromadzeniu reprezentowany jest cały kapitał zakładowy, a nikt z obecnych nie wniósł sprzeciwu co do odbycia Zgromadzenia ani porządku obrad.
+
+Lista obecności:
+1. {{OSOBA|Radosław Wilczyński}}, 60 udziałów, PESEL {{PESEL|@3}};
+2. {{OSOBA|Monika Wilczyńska-Adamiak}}, 25 udziałów, PESEL {{PESEL|@4}};
+3. {{FIRMA|Lubuski Fundusz Rozwoju Sp. z o.o.}}, 15 udziałów, reprezentowany przez pełnomocnika {{OSOBA|Jerzego Ostrowskiego}}.
+
+Na Przewodniczącego Zgromadzenia wybrano jednogłośnie {{OSOBA|Monikę Wilczyńską-Adamiak}}, a na protokolanta {{OSOBA|Natalię Bąk}}.
+
+§ 2. Uchwała nr 1/06/2025 w sprawie podwyższenia kapitału zakładowego
+
+Zgromadzenie Wspólników postanawia podwyższyć kapitał zakładowy z kwoty 100 000 zł do kwoty 150 000 zł przez utworzenie 50 nowych udziałów. Nowe udziały obejmie w całości {{OSOBA|Radosław Wilczyński}} i pokryje je wkładem pieniężnym. Za uchwałą oddano 100 głosów, głosów przeciw i wstrzymujących się nie było.
+
+§ 3. Uchwała nr 2/06/2025 w sprawie zgody na nabycie nieruchomości
+
+Zgromadzenie wyraża zgodę na nabycie przez Spółkę od państwa {{OSOBA|Teresy}} i {{OSOBA|Henryka Borkowskich}} nieruchomości rolnej o powierzchni 4,2 ha położonej w miejscowości {{MIEJSCE|Zabór}}, dla której {{FIRMA|Sąd Rejonowy w Zielonej Górze}} prowadzi księgę wieczystą nr {{SYGNATURA|ZG1E/00045871/3}}, za cenę nie wyższą niż 620 000 zł. Pełnomocnik {{FIRMA|Lubuskiego Funduszu Rozwoju}} głosował przeciw. {{OSOBA|Ostrowski}} zażądał zaprotokołowania sprzeciwu.
+
+§ 4. Uchwała nr 3/06/2025 w sprawie powołania prokurenta
+
+Zgromadzenie powołuje panią {{OSOBA|Natalię Bąk}} na prokurenta samoistnego. Pani {{OSOBA|Bąk}} wyraziła zgodę na powołanie. Wniosek do sądu rejestrowego złoży kancelaria {{FIRMA|Dąbrowski i Partnerzy}}, z którą Spółka współpracuje od 2021 r. przy sprzedaży win marki {{NAZWA|Złota Lubuszanka}}.
+
+§ 5. Wolne wnioski
+
+{{OSOBA|Jerzy Ostrowski}} zapytał o stan rozliczeń dotacji z programu {{NAZWA|Lubuskie Smaki 2024}}. Prezes {{OSOBA|Wilczyński}} wyjaśnił, że rozliczenie złożono w terminie, a środki wpłynęły na rachunek {{IBAN|@5:pl}}. Kontakt w sprawie dokumentów: {{EMAIL|biuro@trzywzgorza.example}}, tel. {{TELEFON|68 451 20 77}}.
+
+Wobec wyczerpania porządku obrad Przewodnicząca zamknęła Zgromadzenie.
+
+Przewodnicząca: {{OSOBA|M. Wilczyńska-Adamiak}}
+Protokolant: {{OSOBA|N. Bąk}}

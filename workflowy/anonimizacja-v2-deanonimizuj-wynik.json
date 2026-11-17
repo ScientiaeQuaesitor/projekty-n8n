@@ -1,0 +1,244 @@
+[
+  {
+    "updatedAt": "2026-11-16T20:59:10.995Z",
+    "createdAt": "2026-11-16T20:58:00.618Z",
+    "id": "nje0xEFugGXnrtgF",
+    "name": "Anonimizacja v2 « Deanonimizuj wynik",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "f1a0c001-0000-4000-8000-000000000001",
+        "name": "Formularz",
+        "type": "n8n-nodes-base.formTrigger",
+        "typeVersion": 2.6,
+        "position": [
+          0,
+          0
+        ],
+        "webhookId": "b7d3a2c4-5e61-4f0a-9c1d-2a6e8f4b9d10",
+        "parameters": {
+          "formTitle": "Deanonimizuj wynik",
+          "formDescription": "Wklej całą odpowiedź zewnętrznego modelu bez własnych poprawek. Surogaty zostaną zamienione na dane oryginalne z mapy wskazanej sesji.",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Identyfikator sesji",
+                "fieldName": "sesja",
+                "fieldType": "text",
+                "placeholder": "np. 3fa9c1d2e4b7",
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Odpowiedź zewnętrznego modelu",
+                "fieldName": "tekst",
+                "fieldType": "textarea",
+                "placeholder": "Tekst z surogatami",
+                "requiredField": true
+              }
+            ]
+          },
+          "options": {
+            "path": "deanonimizuj-wynik",
+            "buttonLabel": "Deanonimizuj",
+            "appendAttribution": false
+          }
+        }
+      },
+      {
+        "id": "f1a0c001-0000-4000-8000-000000000002",
+        "name": "Deanonimizuj w serwisie",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          260,
+          0
+        ],
+        "onError": "continueErrorOutput",
+        "notes": "Why HTTP: własny lokalny serwis anonimizator, nie ma dla niego węzła. Bez ponowień: błąd 404 (zła sesja) nie powinien czekać na kolejne próby.",
+        "parameters": {
+          "method": "POST",
+          "url": "=http://anonimizator:8000/sesje/{{ encodeURIComponent($json.sesja.trim()) }}/deanonimizuj-tekst",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ tekst: $json.tekst }) }}",
+          "options": {
+            "timeout": 60000
+          }
+        }
+      },
+      {
+        "id": "f1a0c001-0000-4000-8000-000000000003",
+        "name": "Wynik",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          540,
+          -120
+        ],
+        "webhookId": "c2e4f6a8-1b3d-4c5e-8f70-91a2b3c4d5e6",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "showText",
+          "responseText": "=<div style=\"font-family:system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#111\"><h2>Tekst po deanonimizacji</h2><p>Sesja: <code>{{ $('Formularz').item.json.sesja.trim() }}</code>. Miejsc niepewnych: <b>{{ $json.niepewne.length }}</b>.</p><pre style=\"white-space:pre-wrap;font:14px/1.5 system-ui,sans-serif;border:1px solid #bbb;border-radius:6px;padding:12px;background:#fafafa\">{{ $json.tekst.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;') }}</pre><h3>Miejsca niepewne do sprawdzenia</h3>{{ $json.niepewne.length ? '<table style=\"border-collapse:collapse;width:100%;font-size:13px\"><tr><th style=\"border:1px solid #999;padding:4px 6px;text-align:left\">surogat</th><th style=\"border:1px solid #999;padding:4px 6px;text-align:left\">wstawiony oryginał</th><th style=\"border:1px solid #999;padding:4px 6px;text-align:left\">kontekst w odpowiedzi modelu</th></tr>' + $json.niepewne.map(n => '<tr>' + [n.surogat, n.oryginal, n.kontekst].map(x => '<td style=\"border:1px solid #999;padding:4px 6px\">' + String(x).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;') + '</td>').join('') + '</tr>').join('') + '</table>' : '<p>Brak. Wszystkie formy pochodzą ze słownika lub z dokumentu.</p>' }}<p style=\"color:#555;font-size:13px\">Nazwy, które model skrócił, przetłumaczył albo zapisał z błędem, nie zostały zamienione. Informacje dopisane przez model o surogatach (na przykład o mieście) nie dotyczą danych oryginalnych.</p></div>"
+        }
+      },
+      {
+        "id": "f1a0c001-0000-4000-8000-000000000004",
+        "name": "Sesja nie istnieje?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          540,
+          140
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "a1b2c3d4-0000-4000-8000-000000000001",
+                "leftValue": "={{ JSON.stringify($json) }}",
+                "rightValue": "Nie ma sesji",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "f1a0c001-0000-4000-8000-000000000005",
+        "name": "Brak sesji",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          820,
+          40
+        ],
+        "webhookId": "d3f5a7b9-2c4e-4d6f-9a81-a2b3c4d5e6f7",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "text",
+          "completionTitle": "Nie znaleziono sesji",
+          "completionMessage": "=Sesja „{{ $('Formularz').item.json.sesja.trim() }}” nie istnieje w serwisie. Sprawdź identyfikator i wyślij formularz ponownie. Tekst nie został zmieniony.",
+          "options": {}
+        }
+      },
+      {
+        "id": "f1a0c001-0000-4000-8000-000000000006",
+        "name": "Błąd serwisu",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          820,
+          240
+        ],
+        "webhookId": "e4a6b8c0-3d5f-4e70-8b92-b3c4d5e6f708",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "text",
+          "completionTitle": "Deanonimizacja nie powiodła się",
+          "completionMessage": "Serwis anonimizator nie odpowiedział poprawnie. Sprawdź, czy kontener anonimizator działa, i wyślij formularz ponownie. Tekst nie został zmieniony.",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Formularz": {
+        "main": [
+          [
+            {
+              "node": "Deanonimizuj w serwisie",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Deanonimizuj w serwisie": {
+        "main": [
+          [
+            {
+              "node": "Wynik",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Sesja nie istnieje?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sesja nie istnieje?": {
+        "main": [
+          [
+            {
+              "node": "Brak sesji",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Błąd serwisu",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": null,
+    "meta": null,
+    "nodeGroups": [],
+    "pinData": null,
+    "versionId": "3c285663-6e9a-4ac2-90b1-32b23d8c80b1",
+    "activeVersionId": "3c285663-6e9a-4ac2-90b1-32b23d8c80b1",
+    "versionCounter": 1,
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-11-16T20:58:00.618Z",
+        "createdAt": "2026-11-16T20:58:00.618Z",
+        "role": "workflow:owner",
+        "workflowId": "nje0xEFugGXnrtgF",
+        "projectId": "LHpcXghVcNevcNCm",
+        "project": {
+          "updatedAt": "2026-08-11T14:37:20.878Z",
+          "createdAt": "2026-08-11T14:35:23.003Z",
+          "id": "LHpcXghVcNevcNCm",
+          "name": "Twoje Imie <twoj.email@example.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "b0fd05d2-e022-407c-bd1e-725d0d327776"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]
