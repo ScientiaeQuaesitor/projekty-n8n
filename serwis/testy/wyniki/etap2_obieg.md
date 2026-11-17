@@ -1,6 +1,6 @@
 # Etap 2: pełny obieg
 
-Klasyfikator kategorii: gemma4:e4b. Czas przebiegu: 0 s.
+Klasyfikator kategorii: gemma4:e4b. Czas przebiegu: 0 s (klasyfikacja: lista 0 s, uzasadnienie 0 s, pojedynczo 0 s).
 
 | dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne |
 |---|---|---|---|---|---|

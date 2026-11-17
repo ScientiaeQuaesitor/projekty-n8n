@@ -1,4 +1,6 @@
 """Anonimizacja i deanonimizacja tekstu w ramach sesji."""
+import time
+
 import regex as re
 
 from .. import detekcja, morf
@@ -123,9 +125,12 @@ def _pewna_osoba(fragment: str) -> bool:
 
 
 def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = None, model: str | None = None,
-                       encje: list[Encja] | None = None) -> dict[str, str]:
+                       encje: list[Encja] | None = None, zapisz_pamiec=None, czasy: dict | None = None) -> dict[str, str]:
     """Kategoria każdej wykrytej nazwy. Bez klasyfikacji (zawsze podmiana) zostają: osoby pewne słownikowo, nazwiska
-    występujące w dokumencie obok imienia oraz firmy z formą prawną."""
+    występujące w dokumencie obok imienia oraz firmy z formą prawną.
+
+    Klucz pamięci zaczyna się od odcisku promptu, wariantu i modelu, więc zmiana któregokolwiek nie używa starych ocen.
+    zapisz_pamiec(pamiec) jest wołane po każdej paczce zapytań. czasy dostają czas i liczbę zapytanych nazw na wariant."""
     znane_nazwiska = [lem for z in zakresy if z.typ == "OSOBA" and _pewna_osoba(z.tekst) for lem in _sygnatura(z.tekst)]
     llm_syg = [_sygnatura(e.tekst) for e in (encje or []) if e.zrodlo == "llm"]
     z_gory: dict[str, str] = {}
@@ -148,13 +153,21 @@ def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = 
     pamiec = pamiec if pamiec is not None else {}
     glosy: dict[str, list[str]] = {f: [] for f in kandydaci}
     for wariant in detekcja.llm.WARIANTY_KLASYFIKACJI:
-        nowe = [(f, k) for f, k in kandydaci.items() if f"{wariant}|{f}|{k}" not in pamiec]
+        odcisk = detekcja.llm.odcisk_klasyfikacji(wariant, model)
+        nowe = [(f, k) for f, k in kandydaci.items() if f"{odcisk}|{f}|{k}" not in pamiec]
+        t0 = time.time()
         if nowe:
-            oceny = detekcja.llm.klasyfikuj(nowe, model, wariant)
-            pamiec.update({f"{wariant}|{f}|{k}": oceny.get(f) for f, k in nowe})
+            def po_paczce(paczka, oceny, odcisk=odcisk):
+                # Brak oceny też jest zapamiętany (None), żeby wznowienie nie pytało drugi raz
+                pamiec.update({f"{odcisk}|{f}|{k}": oceny.get(f) for f, k in paczka})
+                if zapisz_pamiec:
+                    zapisz_pamiec(pamiec)
+            detekcja.llm.klasyfikuj(nowe, model, wariant, po_paczce=po_paczce)
+        if czasy is not None:
+            czasy[f"klasyfikacja_{wariant}"] = {"s": round(time.time() - t0, 1), "zapytane": len(nowe), "z_pamieci": len(kandydaci) - len(nowe)}
         for f, k in kandydaci.items():
-            if pamiec.get(f"{wariant}|{f}|{k}"):
-                glosy[f].append(pamiec[f"{wariant}|{f}|{k}"])
+            if pamiec.get(f"{odcisk}|{f}|{k}"):
+                glosy[f].append(pamiec[f"{odcisk}|{f}|{k}"])
     wynik = dict(z_gory)
     for f, g in glosy.items():
         zostaw = [x for x in g if x in KATEGORIE_ZOSTAW]
@@ -169,11 +182,19 @@ def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = 
 
 
 def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detektory: list[str] | None = None,
-               weryfikuj: bool = True, pamiec: dict | None = None, model_klasyfikacji: str | None = None) -> dict:
+               weryfikuj: bool = True, pamiec: dict | None = None, model_klasyfikacji: str | None = None,
+               zapisz_pamiec=None, czasy: dict | None = None) -> dict:
+    """czasy, jeśli podane, dostają czas faz w sekundach: detekcja, scalanie, klasyfikacja (na wariant), podmiana."""
+    czasy = czasy if czasy is not None else {}
+    t0 = time.time()
     if encje is None:
         encje = detekcja.wykryj(tekst, detektory or DOMYSLNE_DETEKTORY)
+        czasy["detekcja"] = round(time.time() - t0, 1)
+    t0 = time.time()
     zakresy = scal(tekst, encje)
-    kategorie = kategorie_zakresow(tekst, zakresy, pamiec, model_klasyfikacji, encje) if weryfikuj else {}
+    czasy["scalanie"] = round(time.time() - t0, 1)
+    kategorie = kategorie_zakresow(tekst, zakresy, pamiec, model_klasyfikacji, encje, zapisz_pamiec, czasy) if weryfikuj else {}
+    t_podmiana = time.time()
     ctx = Kontekst(sesja, tekst, zakresy)
 
     # Przebieg 1: pary imię + nazwisko z całego dokumentu (potrzebne dla inicjałów i płci samych nazwisk)
@@ -248,6 +269,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
         pos = z.end
         podmiany.append({"start": z.start, "end": z.end, "typ": z.typ, "oryginal": z.tekst, "surogat": nowe})
     out.append(tekst[pos:])
+    czasy["podmiana"] = round(time.time() - t_podmiana, 1)
     return {"tekst": "".join(out), "podmiany": podmiany, "pominiete": pominiete, "kategorie": kategorie,
             "odrzucone_jako_ogolne": sorted(f for f, k in kategorie.items() if k in KATEGORIE_ZOSTAW),
             "sporne": sorted(f for f, k in kategorie.items() if k.startswith("SPORNE:"))}

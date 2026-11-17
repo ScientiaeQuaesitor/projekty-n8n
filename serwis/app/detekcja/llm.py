@@ -138,10 +138,26 @@ WARIANTY_KLASYFIKACJI = {
     "pojedynczo": {"paczka": 1, "uzasadnienie": True},     # każdy fragment osobno
 }
 ZDANIE_UZASADNIENIA = 'Dla każdego fragmentu najpierw napisz w polu "uzasadnienie" jedno krótkie zdanie: czym ten fragment jest w tym dokumencie. Dopiero potem wybierz kategorię zgodną z uzasadnieniem.\n\n'
+OPCJE_KLASYFIKACJI = {"temperature": 0, "num_ctx": 8192}
+# Podnieść przy zmianie sposobu budowania zapytania w klasyfikuj(), której nie widać w prompcie ani ustawieniach
+WERSJA_ZAPYTANIA_KLASYFIKACJI = 1
 
 
-def klasyfikuj(fragmenty_z_kontekstem: list[tuple[str, str]], model: str | None = None, wariant: str = "lista") -> dict[str, str]:
-    """Kategoria każdego fragmentu według LLM, jednym z wariantów pytania. Fragment bez oceny nie trafia do wyniku."""
+def odcisk_klasyfikacji(wariant: str, model: str | None = None) -> str:
+    """Skrót wszystkiego, od czego zależy ocena: prompt, ustawienia wariantu, kategorie, opcje i model.
+    Zmiana któregokolwiek unieważnia zapamiętane oceny bez ręcznego usuwania plików pamięci."""
+    import hashlib
+    import json
+    tresc = json.dumps([WERSJA_ZAPYTANIA_KLASYFIKACJI, PROMPT_KLASYFIKACJA, ZDANIE_UZASADNIENIA, wariant,
+                        WARIANTY_KLASYFIKACJI[wariant], KATEGORIE, OPCJE_KLASYFIKACJI, model or LLM_MODEL_KLASYFIKACJA],
+                       ensure_ascii=False, sort_keys=True)
+    return hashlib.sha1(tresc.encode("utf-8")).hexdigest()[:12]
+
+
+def klasyfikuj(fragmenty_z_kontekstem: list[tuple[str, str]], model: str | None = None, wariant: str = "lista",
+               po_paczce=None) -> dict[str, str]:
+    """Kategoria każdego fragmentu według LLM, jednym z wariantów pytania. Fragment bez oceny nie trafia do wyniku.
+    po_paczce(paczka, oceny_paczki) jest wołane po każdym zapytaniu, żeby przerwany przebieg nie tracił ocen."""
     import json
     ust = WARIANTY_KLASYFIKACJI[wariant]
     prompt = PROMPT_KLASYFIKACJA if ust["uzasadnienie"] else PROMPT_KLASYFIKACJA.replace(ZDANIE_UZASADNIENIA, "")
@@ -151,7 +167,7 @@ def klasyfikuj(fragmenty_z_kontekstem: list[tuple[str, str]], model: str | None 
         tresc = "\n".join(f"{n + 1}. „{f}” | kontekst: …{k}…" for n, (f, k) in enumerate(paczka))
         r = httpx.post(f"{OLLAMA_URL}/api/chat", timeout=900, json={
             "model": model or LLM_MODEL_KLASYFIKACJA, "stream": False, "think": False, "format": _schemat_klasyfikacji(ust["uzasadnienie"]),
-            "options": {"temperature": 0, "num_ctx": 8192},
+            "options": OPCJE_KLASYFIKACJI,
             "messages": [{"role": "system", "content": prompt}, {"role": "user", "content": tresc}],
         })
         if r.status_code != 200:
@@ -160,9 +176,13 @@ def klasyfikuj(fragmenty_z_kontekstem: list[tuple[str, str]], model: str | None 
             oceny = json.loads(r.json()["message"]["content"])["oceny"]
         except Exception as e:
             raise BladLLM(f"Model nie zwrócił poprawnego JSON przy klasyfikacji: {e}") from e
+        oceny_paczki: dict[str, str] = {}
         for o in oceny:
             if isinstance(o, dict) and o.get("kategoria") in KATEGORIE and isinstance(o.get("nr"), int) and 1 <= o["nr"] <= len(paczka):
-                wynik[paczka[o["nr"] - 1][0]] = o["kategoria"]
+                oceny_paczki[paczka[o["nr"] - 1][0]] = o["kategoria"]
+        wynik.update(oceny_paczki)
+        if po_paczce:
+            po_paczce(paczka, oceny_paczki)
     return wynik
 
 
