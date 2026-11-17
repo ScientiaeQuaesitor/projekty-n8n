@@ -108,8 +108,21 @@ def _pasuje(a: list, b: list) -> bool:
     return bool(a) and len(a) == len(b) and all(x & y for x, y in zip(a, b))
 
 
-# Polityka: co robić z nazwą danej kategorii. Kategorię ustala LLM z kontekstu (detekcja.llm.klasyfikuj).
-KATEGORIE_ZOSTAW = {"INSTYTUCJA", "AKT_PRAWNY", "DOKUMENT", "POJECIE"}   # zostaje; podmieniane są tylko człony własne
+# Polityka: co robić z nazwą danej kategorii. Kategorię ustala LLM z kontekstu (detekcja.llm.klasyfikuj),
+# a dla nazw złożonych z samych wyrazów pospolitych reguła _nazwa_ogolna (kategoria OGOLNA, bez pytania modelu).
+KATEGORIE_ZOSTAW = {"INSTYTUCJA", "AKT_PRAWNY", "DOKUMENT", "POJECIE", "OGOLNA"}   # zostaje; podmieniane są tylko człony własne
+
+
+def _nazwa_ogolna(z: Zakres, encje: list[Encja]) -> bool:
+    """Zakres pisany w całości małymi literami, zaczynający się wyrazem pospolitym: „wielostanowiskowym garażu
+    podziemnym numer 4”. Nazwy własne pisze się wielką literą, więc taki zakres jest opisem, nie nazwą, i zostaje bez
+    pytania modelu, także gdy wskazał go detektor LLM. Nazw pisanych wielką literą („Specjalna Strefa Ekonomiczna”
+    i „Zdrowa Apteka”) słownik nie rozróżnia: o nich decyduje klasyfikacja."""
+    if z.typ == "OSOBA" or any(e.typ == "OSOBA" and e.start < z.end and e.end > z.start for e in encje):
+        return False
+    slowa = re.findall(r"\p{L}+", z.tekst)
+    return (bool(slowa) and not re.search(r"\p{Lu}", z.tekst) and morf.rodzaj_slowa(slowa[0]) == "pospolite"
+            and not any(osoby._imie_i(w.capitalize()) for w in slowa if len(w) >= 3))
 TYP_KATEGORII = {"OSOBA": "OSOBA", "FIRMA": "FIRMA", "PRODUKT": "NAZWA", "MIEJSCE": "MIEJSCE"}   # podmiana w całości
 
 
@@ -139,6 +152,9 @@ def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = 
         if z.typ not in ("OSOBA", "FIRMA", "NAZWA", "MIEJSCE") or z.tekst in kandydaci or z.tekst in z_gory:
             continue
         if nazwy.RX_FORMA_KONIEC.search(z.tekst) or nazwy.RX_FORMA_SRODEK.search(z.tekst):
+            continue
+        if _nazwa_ogolna(z, encje or []):
+            z_gory[z.tekst] = "OGOLNA"
             continue
         syg0 = _sygnatura(z.tekst)
         tylko_pospolite = len(syg0) == 1 and bool(re.fullmatch(r"\p{L}+", z.tekst)) and not any(
@@ -234,6 +250,13 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
                     out += [tekst[pos:z.start], nowe]
                     pos = z.end
                     podmiany.append({"start": z.start, "end": z.end, "typ": "OPISOWA", "oryginal": z.tekst, "surogat": nowe})
+                    continue
+                if ((nowe is None or nowe == z.tekst) and _same_pospolite(z.tekst)
+                        and not re.search(r"[„”\"]", tekst[max(0, z.start - 1):z.end + 1])):
+                    # Głosy podzielone, a każde słowo nazwy jest w słowniku wyłącznie wyrazem pospolitym, bez znaczenia
+                    # imienia, nazwiska ani nazwy geograficznej, i nie stoi w cudzysłowie: „Specjalna Strefa Ekonomiczna”.
+                    # Podmiana w całości dawałaby szum zamiast ochrony. „Dąbrowski i Partnerzy”, „Zabór” tu nie wchodzą.
+                    pominiete.append({**z.jako_dict(), "powod": "głosy podzielone, bez członu własnego"})
                     continue
         if kategoria in KATEGORIE_ZOSTAW:
             # „Kodeks cywilny”, „Umowa Przedwstępna”, „Specjalna Strefa Ekonomiczna” zostają; w „Sąd Rejonowy w Gliwicach”

@@ -57,7 +57,9 @@ NAZWISKA = ["Zawilski", "Jarzębski", "Modrzewski", "Wrzosowski", "Jesionowski",
 
 MIASTA = ["Radom", "Olsztyn", "Tarnów", "Płock", "Kalisz", "Sieradz", "Konin", "Elbląg", "Toruń", "Legnica", "Łomża",
           "Nysa", "Ostrołęka", "Piła", "Bytom", "Chełm", "Przemyśl", "Słupsk", "Koszalin", "Włocławek", "Mielec", "Tczew",
-          "Sanok", "Inowrocław", "Zgierz", "Ełk", "Sopot", "Kołobrzeg", "Wałbrzych", "Głogów", "Racibórz", "Pabianice"]
+          "Sanok", "Inowrocław", "Zgierz", "Ełk", "Sopot", "Kołobrzeg", "Wałbrzych", "Głogów", "Racibórz", "Pabianice",
+          # nagłos wymagający „we” albo „ze”: surogat dobierany z tej samej klasy co oryginał (nazwy.klasa_naglosu)
+          "Wschowa", "Włodawa", "Września", "Włoszczowa", "Szczytno", "Szczecinek", "Sztum", "Świdwin", "Żnin"]
 
 FIRMY_M = ["Tarvon", "Melkam", "Sorbin", "Vadrem", "Kelbon", "Nordam", "Lirten", "Balvis", "Zefiron", "Maltis",
            "Rodavin", "Varnis", "Dentrom", "Kortas", "Embras", "Galdon", "Hestim", "Kastom", "Lodvin", "Mirtas",

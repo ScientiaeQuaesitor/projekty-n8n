@@ -109,17 +109,17 @@ KATEGORIE = ["OSOBA", "FIRMA", "PRODUKT", "MIEJSCE", "INSTYTUCJA", "AKT_PRAWNY",
 PROMPT_KLASYFIKACJA = """Dostajesz ponumerowane fragmenty polskiego dokumentu, każdy z kontekstem. Przypisz każdemu fragmentowi jedną kategorię.
 
 OSOBA: konkretna osoba fizyczna.
-FIRMA: konkretny podmiot prywatny, czyli spółka, przedsiębiorca, bank, kancelaria, fundacja, stowarzyszenie, sieć sklepów.
-PRODUKT: nazwa własna produktu, projektu, systemu informatycznego albo marki należącej do konkretnej firmy.
+FIRMA: nazwa własna konkretnego podmiotu prywatnego (spółki, przedsiębiorcy, banku, fundacji, stowarzyszenia, sieci sklepów), czyli nazwa wybrana przez właściciela, która odróżnia ten podmiot od innych podmiotów tego samego rodzaju.
+PRODUKT: nazwa własna produktu, projektu, systemu informatycznego albo marki należącej do konkretnej firmy, także nazwa nadana projektowi lub produktowi, gdy jest zwykłym słowem (nazwa kodowa projektu).
 MIEJSCE: miejscowość, dzielnica, osiedle, ulica, region.
-INSTYTUCJA: organ władzy lub instytucja publiczna, czyli sąd, urząd, rada gminy, organ państwa lub Unii Europejskiej, a także system, portal, baza danych lub rejestr prowadzony przez państwo. System państwowy to INSTYTUCJA, nie PRODUKT.
+INSTYTUCJA: organ władzy lub instytucja publiczna, czyli sąd, urząd, ministerstwo, minister, rada gminy, organ państwa lub Unii Europejskiej, a także system, portal, baza danych, rejestr, strefa lub obszar ustanowione przez państwo albo przepisy. System państwowy to INSTYTUCJA, nie PRODUKT.
 AKT_PRAWNY: ustawa, kodeks, rozporządzenie, dyrektywa, uchwała albo fragment jej tytułu.
 DOKUMENT: rodzaj lub tytuł dokumentu, czynności prawnej albo orzeczenia.
 POJECIE: pojęcie prawne lub ogólne, rola strony, termin zdefiniowany w dokumencie, nagłówek, zwykłe słowo.
 
 Dla każdego fragmentu najpierw napisz w polu "uzasadnienie" jedno krótkie zdanie: czym ten fragment jest w tym dokumencie. Dopiero potem wybierz kategorię zgodną z uzasadnieniem.
 
-Kieruj się kontekstem, nie samym brzmieniem. Nazwa złożona ze zwykłych słów może być firmą albo produktem, jeśli kontekst mówi o konkretnym podmiocie. Gdy nie masz pewności, czy fragment wskazuje konkretną osobę lub konkretny podmiot prywatny, wybierz OSOBA albo FIRMA. Oceń wszystkie fragmenty."""
+Kieruj się kontekstem, nie samym brzmieniem. Nazwa złożona ze zwykłych słów może być firmą albo produktem, jeśli kontekst mówi o konkretnym podmiocie. Samo określenie rodzaju podmiotu lub zawodu, także pisane wielką literą i połączone z miejscowością (rodzaj kancelarii, sądu, urzędu albo strefy w danym mieście), to INSTYTUCJA albo POJECIE, nie FIRMA: taki fragment pasuje do wielu podmiotów, a miejscowość i nazwiska są podmieniane osobno. Gdy nie masz pewności, czy fragment wskazuje konkretną osobę lub konkretny podmiot prywatny, wybierz OSOBA albo FIRMA. Oceń wszystkie fragmenty."""
 
 def _schemat_klasyfikacji(z_uzasadnieniem: bool) -> dict:
     pola = {"nr": {"type": "integer"}}

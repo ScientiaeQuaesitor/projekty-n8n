@@ -97,6 +97,16 @@ def _geo(w: str):
     return [i for i in _an(w)[1] if (i.klasa == "subst" and "nazwa_geograficzna" in i.nazwy) or i.klasa == "adj"]
 
 
+def klasa_naglosu(nazwa: str) -> str:
+    """Przyimek wymagany przez początek nazwy: „we Wrocławiu”, „ze Słupska”, zwykle „w”/„z”. Reguła fonetyczna:
+    w/f przed spółgłoską wymaga „we”, s/z/ś/ź/ż przed spółgłoską oraz „mn” wymagają „ze”."""
+    if re.match(r"(?i)[wf](?![aąeęioóuyj])", nazwa):
+        return "we"
+    if re.match(r"(?i)(?:[szśźż](?![aąeęioóuyj])|mn)", nazwa):
+        return "ze"
+    return ""
+
+
 def miejsce(sesja: Sesja, pow: str, tekst: str, start: int, ctx, wymuszony: str | None = None) -> str | None:
     slowa = RX_W.findall(pow)
     if not slowa:
@@ -121,8 +131,15 @@ def miejsce(sesja: Sesja, pow: str, tekst: str, start: int, ctx, wymuszony: str 
         sur = wpis[0]
     else:
         oryginaly = {k for k, _, _ in sesja.wpisy("MIEJSCE")}
-        sur = sesja.z_puli(pule.MIASTA, sesja.uzyte("MIEJSCE"), lambda m: m in oryginaly or any(
-            f.lower() in ctx.slowa for f in pule.formy_miasta(m).values()), pule.zapas_nazwy)
+        uzyte = sesja.uzyte("MIEJSCE")
+
+        def zakazane(m) -> bool:
+            return m in oryginaly or any(f.lower() in ctx.slowa for f in pule.formy_miasta(m).values())
+
+        # Surogat z tej samej klasy nagłosu co oryginał, żeby przyimek przed nim („we”, „ze”) pozostał poprawny
+        klasa = klasa_naglosu(klucz)
+        pula = [m for m in pule.MIASTA if klasa_naglosu(m) == klasa and m not in uzyte and not zakazane(m)] or pule.MIASTA
+        sur = sesja.z_puli(pula, uzyte, zakazane, pule.zapas_nazwy)
         sesja.ustaw("MIEJSCE", klucz, sur, {"znane": znane, "lematy": lematy})
     sesja.zapamietaj_forme("MIEJSCE", klucz, przyp, pow)
     return gram.jak_wzor(pow, pule.formy_miejsca(sur)[przyp])

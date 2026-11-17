@@ -25,6 +25,10 @@ UMOWA SPRZEDAŻY
 
 Strony do niniejszego aktu przedłożyły wydruk z {{ZOSTAW|Portalu Podsystemu Dostępu do Bazy Danych Ksiąg Wieczystych}} dla księgi wieczystej numer {{SYGNATURA|WR1K/00123456/7}} z dnia {{ZOSTAW|30 grudnia 2025 roku}}.
 
+Sprzedająca nabyła {{ZOSTAW|Lokal Mieszkalny}} na podstawie umowy sprzedaży z dnia 14 maja 2012 r., za Rep. A numer {{SYGNATURA|2208/2012}}, sporządzonej w {{ZOSTAW|Kancelarii Notarialnej}} w {{MIEJSCE|Oleśnicy}}, przed notariuszem {{OSOBA|Bogumiłem Adamczykiem}}, oraz wypisu aktu sporządzonego w {{ZOSTAW|Kancelarii Notarialnej}} we {{MIEJSCE|Wrocławiu}}. Z {{ZOSTAW|Lokalem Mieszkalnym}} związane jest prawo do korzystania z jednego stanowiska postojowego w {{ZOSTAW|wielostanowiskowym garażu podziemnym numer 4}}. Wyżej opisana nieruchomość nie znajduje się na obszarze strefy ekonomicznej, czy {{ZOSTAW|Specjalnej Strefy Ekonomicznej}}, a pierwszeństwo nabycia przysługuje {{FIRMA|Zielonej Dolinie Sp. z o.o.}} z siedzibą w {{MIEJSCE|Oleśnicy}}; {{FIRMA|Zielona Dolina}} nie złożyła oświadczenia.
+
+Notariusz poinformował Stawających o treści art. 13 {{ZOSTAW|rozporządzenia Parlamentu Europejskiego i Rady Unii Europejskiej 2016/679}} z dnia 27.04.2016 r. oraz {{ZOSTAW|rozporządzenia Parlamentu Europejskiego i Rady (UE) nr 1303/2013}}, a także o zaświadczeniu {{ZOSTAW|Ministra Sprawiedliwości}} wydanym przez {{ZOSTAW|Ministerstwo Sprawiedliwości}}.
+
 § 3.
 
 {{OSOBA|Romana Bielecka}} sprzedaje {{OSOBA|Jakubowi Sroczyńskiemu}} opisany wyżej {{ZOSTAW|Lokal Mieszkalny}} za cenę {{ZOSTAW|612.000,00}} zł, a {{OSOBA|Jakub Sroczyński}} oświadcza, że lokal ten kupuje. Pani {{OSOBA|Bielecka}} potwierdza, że cenę otrzymała przelewem na rachunek numer {{IBAN|@6}}.

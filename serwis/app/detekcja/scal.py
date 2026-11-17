@@ -174,13 +174,28 @@ RX_CHRONIONE = re.compile(
     r"|§\s?\d+\p{L}?"
     r"|Dz\.\s?U\.[^()\n]{0,60}?poz\.\s?\d+"
     r"|(?:\(?(?:UE|WE|EWG)\)?\s)?\d{2,4}/\d{2,4}(?:/(?:WE|UE|EWG))"
-    r"|\(UE\)\s?\d{4}/\d+"
+    r"|\((?:UE|WE|EWG|EU|EC)\)\s?(?:nr\s?)?\d{1,4}/\d{1,4}"
     r"|\d{1,3}(?:[ . ]\d{3})*(?:,\d{2})?\s?(?:zł|PLN|EUR|USD|euro|złot\p{L}+)(?![\p{L}])"
     r"|\d{1,3}(?:[. ]\d{3})+,\d{2}"
     r"|\d+,\d+\s?(?:m²|m2|ha|%)"
     # daty: podmiana cyfr dałaby „93 grudnia 2086”
     r"|\d{1,2}\s(?:stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|września|wrzesnia|października|pazdziernika|listopada|grudnia)\s\d{4}(?:\s?(?:r\.|roku))?"
     r"|(?<![\d/])\d{1,2}[.-]\d{1,2}[.-]\d{4}(?:\s?r\.)?(?![\d/])|(?<![\d/])\d{4}-\d{2}-\d{2}(?![\d/])|(?<![\d/.,-])(?:19|20)\d{2}\s?(?:r\.|roku)")
+# Numer aktu prawnego w układzie rok/numer („2016/679”). Identyfikatory spraw i dokumentów mają odwrotny układ
+# numer/rok („989/2019”, „I C 123/20”), a gdy rok stoi pierwszy, przed numerem jest słowo numeru („Rep. A numer 2005/2019”).
+RX_NR_AKTU = re.compile(r"(?<![\d/.,\p{L}-])(?:19[5-9]\d|20\d\d)/\d{1,4}(?![\d/\p{L}])")
+RX_SLOWO_NUMERU = re.compile(r"dzia[łl]k\p{L}*|numer\p{L}*|\bnr\b|Rep\p{L}*|sygn\p{L}*|\bKW\b|lokal\p{L}*", re.I)
+
+
+def numery_aktow(tekst: str) -> list[tuple[int, int]]:
+    out = []
+    for m in RX_NR_AKTU.finditer(tekst):
+        przed = re.split(r"[.;]\s|\n", tekst[max(0, m.start() - 40):m.start()])[-1]
+        if re.search(r"\((?:UE|WE|EWG|EU|EC)\)", przed) or not RX_SLOWO_NUMERU.search(przed):
+            out.append((m.start(), m.end()))
+    return out
+
+
 RX_DEFINICJA = re.compile(r"(?:dalej|zwan\p{L}+)(?:\s+(?:dalej|także|również|jako|łącznie|w\sskrócie)){0,3}\s*:?\s+[„\"]?(\p{Lu}[^\"”„\n,;()]{1,60}?)[\"”]")
 
 
@@ -205,7 +220,7 @@ def _malo_cyfr(fragment: str) -> bool:
 
 
 def scal(tekst: str, encje: list[Encja]) -> list[Zakres]:
-    chronione = [(m.start(), m.end()) for m in RX_CHRONIONE.finditer(tekst)]
+    chronione = [(m.start(), m.end()) for m in RX_CHRONIONE.finditer(tekst)] + numery_aktow(tekst)
     terminy = terminy_zdefiniowane(tekst)
 
     def chroniony(a: int, b: int) -> bool:

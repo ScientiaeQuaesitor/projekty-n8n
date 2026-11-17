@@ -1,6 +1,6 @@
 # Etap 2: pełny obieg
 
-Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 69 s (klasyfikacja: lista 0 s, uzasadnienie 0 s, pojedynczo 0 s).
+Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 87 s (klasyfikacja: lista 0 s, uzasadnienie 0 s, pojedynczo 0 s).
 
 | dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | sesje z błędem |
 |---|---|---|---|---|---|---|
@@ -10,8 +10,8 @@ Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). P
 | 04_umowa_o_prace | 31 | 0 | 0 | 0 | 0 | 0 |
 | 05_korespondencja_email | 36 | 0 | 0 | 0 | 0 | 0 |
 | 06_protokol_zgromadzenia | 38 | 0 | 0 | 0 | 0 | 0 |
-| 07_akt_notarialny | 40 | 0 | 0 | 0 | 0 | 0 |
-| **razem** | 261 | 0 | 0 | 0 | 0 | 0 |
+| 07_akt_notarialny | 48 | 0 | 200 | 0 | 0 | 200 |
+| **razem** | 269 | 0 | 200 | 0 | 0 | 200 |
 
 ## 01_umowa_uslugi
 
@@ -51,10 +51,19 @@ Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). P
 
 ## 07_akt_notarialny
 
+1. ZEPSUTE: „Portalu Podsystemu Dostępu do Bazy Danych Ksiąg Wieczystych” (sesje: 0, 1, 2, 3, 4, …)
 1. BEZ PODMIANY: NAZWA „rozporządzenia Parlamentu Europejskiego i Rady”
 1. BEZ PODMIANY: NAZWA „rozporządzenie o ochronie danych osobowych”
 1. BEZ PODMIANY: NAZWA „UMOWA”
 1. BEZ PODMIANY: FIRMA „IV Wydział Ksiąg Wieczystych”
+1. BEZ PODMIANY: NAZWA „Lokal Mieszkalny”
+1. BEZ PODMIANY: NAZWA „Lokal Mieszkalny”
 1. BEZ PODMIANY: NAZWA „Kodeksu”
-1. BEZ PODMIANY: MIEJSCE „Specjalnej Strefy Ekonomicznej”
-1. BEZ PODMIANY: FIRMA „Portalu Podsystemu Dostępu do Bazy Danych Ksiąg Wieczystych”
+1. BEZ PODMIANY: FIRMA „Specjalnej Strefy Ekonomicznej”
+1. BEZ PODMIANY: NAZWA „Lokal Mieszkalny”
+1. BEZ PODMIANY: FIRMA „Specjalnej Strefy Ekonomicznej”
+1. BEZ PODMIANY: NAZWA „rozporządzenia Parlamentu Europejskiego i Rady Unii Europejskiej”
+1. BEZ PODMIANY: NAZWA „rozporządzenia Parlamentu Europejskiego i Rady”
+1. BEZ PODMIANY: FIRMA „Ministra Sprawiedliwości”
+1. BEZ PODMIANY: FIRMA „Ministerstwo Sprawiedliwości”
+1. BEZ PODMIANY: NAZWA „Lokal Mieszkalny”
