@@ -86,6 +86,17 @@ RX_ADRES_ULICA = re.compile(
 RX_KOD_MIASTO = re.compile(r"(?<!\d)\d{2}-\d{3}[ ]+\p{Lu}[\p{L}-]+(?:[ ]\p{Lu}\p{Ll}[\p{L}-]*)?")
 
 
+def _koniec_miejscowosci(tekst: str, a: int, b: int) -> int:
+    """Drugi człon miejscowości po kodzie pocztowym („Zielona Góra”) nie może być imieniem: w tabeli przeczytanej
+    przez OCR wiersze bywają sklejone i za miejscowością stoi imię z następnego wiersza („35-001 Rzeszów Tadeusz
+    Grabowski”). Słowo znane słownikowi jako imię kończy zakres adresu przed sobą."""
+    from .. import morf
+    m = re.search(r"\d{2}-\d{3}[ ]+\p{Lu}[\p{L}-]+([ ]\p{Lu}\p{Ll}[\p{L}-]*)$", tekst[a:b])
+    if m and any("imię" in i.nazwy for i in morf.analizuj(m.group(1).strip())):
+        return a + m.start(1)
+    return b
+
+
 def wykryj(tekst: str) -> list[Encja]:
     wynik: list[Encja] = []
     zajete: list[tuple[int, int]] = []
@@ -123,9 +134,9 @@ def wykryj(tekst: str) -> list[Encja]:
         else:
             dodaj(m.start(), m.end(), "NIP", False)
     for m in RX_ADRES_ULICA.finditer(tekst):
-        dodaj(m.start(), m.end(), "ADRES")
+        dodaj(m.start(), _koniec_miejscowosci(tekst, m.start(), m.end()), "ADRES")
     for m in RX_KOD_MIASTO.finditer(tekst):
-        dodaj(m.start(), m.end(), "ADRES")
+        dodaj(m.start(), _koniec_miejscowosci(tekst, m.start(), m.end()), "ADRES")
     for m in RX_TEL.finditer(tekst):
         if "regon" in _kontekst(tekst, m.start()) and len(cyfry(m.group())) == 9:
             dodaj(m.start(), m.end(), "REGON", regon_ok(m.group()))

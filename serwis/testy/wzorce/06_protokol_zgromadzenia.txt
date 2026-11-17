@@ -12,6 +12,7 @@ Lista obecności:
 1. {{OSOBA|Radosław Wilczyński}}, 60 udziałów, PESEL {{PESEL|@3}};
 2. {{OSOBA|Monika Wilczyńska-Adamiak}}, 25 udziałów, PESEL {{PESEL|@4}};
 3. {{FIRMA#lfr|Lubuski Fundusz Rozwoju Sp. z o.o.}} (dalej: {{FIRMA#lfr|LFR}}), 15 udziałów, reprezentowany przez pełnomocnika {{OSOBA|Jerzego Ostrowskiego}}.
+Adresy do doręczeń: {{OSOBA|Radosław Wilczyński}} {{ADRES|ul. Ogrodowa 12/3, 35-001 Rzeszów}} {{OSOBA|Tadeusz Grabowski}} (pełnomocnik) {{ADRES|ul. Polna 1, 15-950 Białystok}}
 
 Na Przewodniczącego Zgromadzenia wybrano jednogłośnie {{OSOBA|Monikę Wilczyńską-Adamiak}}, a na protokolanta {{OSOBA|Natalię Bąk}}.
 
