@@ -129,8 +129,13 @@ def _wykonaj(c, z) -> None:
             czasy["ekstrakcja"] = round(time.time() - t0, 1)
             _etap(c, z["id"], "anonimizacja")
             wynik = silnik.anonimizuj(sesja, tekst, pamiec=pamiec, model_klasyfikacji=model, zapisz_pamiec=zapisz_pamiec, czasy=czasy)
-            wyjscie, nazwa_wy = wynik["tekst"].encode("utf-8"), "zanonimizowany.md"
-            status = "gotowe" if wynik["kontrola"]["status"] == "ok" else "do_przegladu"
+            # Dokument odtworzony z akapitów OCR (struktura, nie wygląd, bez pikseli oryginału) z tą samą kontrolą
+            # pliku co zwykły DOCX
+            wyjscie, tekst_pliku = pliki.docx_z_tekstu(wynik["tekst"])
+            nazwa_wy = "zanonimizowany.docx"
+            wynik["kontrola_pliku"] = pliki.kontrola_pliku(sesja, "docx", wyjscie, tekst_pliku)
+            ok = wynik["kontrola"]["status"] == "ok" and wynik["kontrola_pliku"]["status"] == "ok"
+            status = "gotowe" if ok else "do_przegladu"
             ocr_info, oryginal_tekst = info.get("ocr"), tekst
         else:
             _etap(c, z["id"], "anonimizacja")

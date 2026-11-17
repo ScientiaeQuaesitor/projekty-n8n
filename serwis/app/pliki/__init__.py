@@ -113,6 +113,27 @@ def kontrola_pliku(sesja: Sesja, typ: str, wynik_plik: bytes, tekst_anon: str, o
             "pozostalosci": pozostalosci}
 
 
+RX_ZNAKI_SPOZA_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def docx_z_tekstu(tekst: str) -> tuple[bytes, str]:
+    """Dokument odtworzony ze skanu (PLAN 6.1, specyfikacja 2.10.3): każdy wiersz tekstu to akapit DOCX, bez obrazu
+    strony i bez metadanych. Zwraca (plik, tekst w postaci, jaką ma plik), bo znaki niedozwolone w XML (sterujące z
+    OCR) są usuwane, a kontrola pliku porównuje z tekstem po tym samym oczyszczeniu."""
+    from docx import Document
+    czysty = RX_ZNAKI_SPOZA_XML.sub("", tekst)
+    d = Document()
+    for k in ("author", "last_modified_by", "title", "subject", "keywords", "comments", "category"):
+        setattr(d.core_properties, k, "")
+    for linia in czysty.split("\n"):
+        d.add_paragraph(linia)
+    import io
+    b = io.BytesIO()
+    d.save(b)
+    # Szablon python-docx ma miniaturę i metadane: plik przechodzi to samo czyszczenie co każdy DOCX
+    return fdocx.Docx(b.getvalue()).zapisz(), czysty
+
+
 def anonimizuj_plik(sesja: Sesja, nazwa: str, dane: bytes, encje=None, **opcje) -> tuple[bytes, dict]:
     """Zwraca (plik zanonimizowany, wynik). Wynik to wynik silnika (tekst, podmiany, kontrola tekstu, …) z polami
     typ, czyszczenie (co usunięto z pliku) i kontrola_pliku. Plik ze statusem kontroli innym niż ok nie powinien być

@@ -226,6 +226,8 @@ def analizuj_nazwe(rdzen: str, ctx) -> dict | None:
             if pewny_lemat:
                 kand = set(KONCOWKI_IGN.get(pierwsze[len(lemat):].lower(), set())) if pierwsze.lower().startswith(lemat.lower()) else set()
                 kand |= {p for p, f in formy_ign(lemat).items() if p != "voc" and f.lower() == pierwsze.lower()}
+            else:
+                lemat, kand = lemat_z_koncowki(pierwsze)
             klasa = "ign"
         grupa = [{"lemat": lemat, "klasa": klasa, "wzor": pierwsze, "pre": ""}]
         tro = {("sg", p, "f" if lemat.endswith("a") and klasa == "ign" else "m3") for p in (kand or gram.KOLEJNOSC[:6])}
@@ -262,6 +264,25 @@ def analizuj_nazwe(rdzen: str, ctx) -> dict | None:
     reszta = rdzen[koniec:]
     klucz = " ".join([(g["pre"] + g["lemat"]).lower() for g in grupa] + [x.lower() for x in RX_W.findall(reszta)])
     return {"klucz": klucz, "grupa": grupa, "tro": tro, "kand": kand, "reszta": reszta, "przed": rdzen[:slowa[0].start()]}
+
+
+# Końcówki, które w odmianie regularnej występują tylko w przypadkach zależnych: (końcówka, temat -> lemat)
+KONCOWKI_ZALEZNE = [("iem", lambda t: t), ("em", lambda t: t), ("owi", lambda t: t),
+                    ("ą", lambda t: t + "a"), ("ę", lambda t: t + "a")]
+
+
+def lemat_z_koncowki(w: str) -> tuple[str, set]:
+    """Nazwa spoza słownika, której forma podstawowa nie występuje w dokumencie: „ze Skalbudem”. Jeśli słowo kończy się
+    końcówką typową tylko dla przypadka zależnego, a reguła odmiany (formy_ign) z odciętego tematu daje dokładnie to
+    słowo, lemat i przypadek wynikają z odwrócenia reguły. Inaczej słowo jest swoim lematem, a przypadek rozstrzyga
+    kontekst."""
+    for kon, lem in KONCOWKI_ZALEZNE:
+        if w.lower().endswith(kon) and len(w) - len(kon) >= 3:
+            lemat = lem(w[:-len(kon)])
+            kand = {p for p, f in formy_ign(lemat).items() if p != "voc" and f == w}
+            if kand:
+                return lemat, kand
+    return w, set()
 
 
 def skrotowiec(w: str) -> bool:

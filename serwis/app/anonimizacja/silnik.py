@@ -206,6 +206,40 @@ def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = 
     return wynik
 
 
+# Przyimek „w”/„we” albo „z”/„ze” stojący bezpośrednio przed nazwą
+RX_PRZYIMEK = re.compile(r"(?<![\p{L}\d.])([wWzZ])([eE]?)([ \t\u00a0]+)$")
+
+
+def przyimek(przed: str, nowe: str) -> tuple[int, str] | None:
+    """Jeśli tekst przed nazwą kończy się przyimkiem w/we albo z/ze, którego forma nie pasuje do nagłosu nowej nazwy,
+    zwraca (długość przyimka z odstępem, poprawiony przyimek z odstępem). Reguła fonetyczna (nazwy.klasa_naglosu):
+    „we” przed w/f i spółgłoską, „ze” przed s/z/ś/ź/ż i spółgłoską: „ze Stanisławem” -> „z Bronisławem”,
+    „z Mirtasem” -> „ze Stalmetem”. Inne przyimki i formy zostają."""
+    m = RX_PRZYIMEK.search(przed)
+    if not m:
+        return None
+    litera, e, odstep = m.groups()
+    klasa = nazwy.klasa_naglosu(nowe)
+    potrzebne = (litera.lower() == "w" and klasa == "we") or (litera.lower() == "z" and klasa == "ze")
+    if potrzebne == bool(e):
+        return None
+    # „We Wrocławiu” na początku zdania: wielka zostaje tylko pierwsza litera
+    return len(m.group(0)), litera + ("e" if potrzebne else "") + odstep
+
+
+def _dodaj(tekst: str, out: list, podmiany: list, pos: int, z, typ: str, nowe: str) -> int:
+    """Dopisuje podmianę zakresu z. Przyimek przed nim dopasowuje się do nagłosu surogatu i wtedy wchodzi do zakresu
+    podmiany, żeby zmiana trafiła także do pliku (model pośredni zmienia tylko zakresy podmian)."""
+    start = z.start
+    p = przyimek(tekst[pos:z.start], nowe)
+    if p:
+        dl, nowy = p
+        start, nowe = z.start - dl, nowy + nowe
+    out += [tekst[pos:start], nowe]
+    podmiany.append({"start": start, "end": z.end, "typ": typ, "oryginal": tekst[start:z.end], "surogat": nowe})
+    return z.end
+
+
 def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detektory: list[str] | None = None,
                weryfikuj: bool = True, pamiec: dict | None = None, model_klasyfikacji: str | None = None,
                zapisz_pamiec=None, czasy: dict | None = None) -> dict:
@@ -254,9 +288,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
             if _budowa_opisowa(z.tekst):
                 nowe = nazwy.podmien_wlasne(sesja, z.tekst, tekst, z.start, ctx)
                 if nowe and nowe != z.tekst:
-                    out += [tekst[pos:z.start], nowe]
-                    pos = z.end
-                    podmiany.append({"start": z.start, "end": z.end, "typ": "OPISOWA", "oryginal": z.tekst, "surogat": nowe})
+                    pos = _dodaj(tekst, out, podmiany, pos, z, "OPISOWA", nowe)
                     continue
                 if ((nowe is None or nowe == z.tekst) and _same_pospolite(z.tekst)
                         and not re.search(r"[„”\"]", tekst[max(0, z.start - 1):z.end + 1])):
@@ -272,9 +304,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
             if nowe is None or nowe == z.tekst:
                 pominiete.append({**z.jako_dict(), "powod": f"kategoria {kategoria}"})
                 continue
-            out += [tekst[pos:z.start], nowe]
-            pos = z.end
-            podmiany.append({"start": z.start, "end": z.end, "typ": kategoria, "oryginal": z.tekst, "surogat": nowe})
+            pos = _dodaj(tekst, out, podmiany, pos, z, kategoria, nowe)
             continue
         if kategoria in TYP_KATEGORII and not (z.typ == "OSOBA" and kategoria == "MIEJSCE"):
             z.typ = TYP_KATEGORII[kategoria]
@@ -294,10 +324,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
         if nowe is None or nowe == z.tekst:
             pominiete.append(z.jako_dict())
             continue
-        out.append(tekst[pos:z.start])
-        out.append(nowe)
-        pos = z.end
-        podmiany.append({"start": z.start, "end": z.end, "typ": z.typ, "oryginal": z.tekst, "surogat": nowe})
+        pos = _dodaj(tekst, out, podmiany, pos, z, z.typ, nowe)
     out.append(tekst[pos:])
     czasy["podmiana"] = round(time.time() - t_podmiana, 1)
     wyjscie = "".join(out)
@@ -403,7 +430,12 @@ def deanonimizuj(sesja: Sesja, tekst: str) -> dict:
     for a, b, nowe, niepewna in trafienia:
         if a < pos:
             continue
-        out.append(tekst[pos:a])
+        przed = tekst[pos:a]
+        p = przyimek(przed, nowe)
+        if p:
+            # Przyimek przed oryginałem według jego nagłosu: „z Mirtasem” -> „ze Stalmetem”
+            przed = przed[:len(przed) - p[0]] + p[1]
+        out.append(przed)
         out.append(nowe)
         if niepewna:
             niepewne.append({"surogat": tekst[a:b], "oryginal": nowe, "kontekst": tekst[max(0, a - 40):b + 30].replace("\n", " ")})

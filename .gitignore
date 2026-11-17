@@ -18,3 +18,4 @@ __pycache__/
 
 # Pliki wzorcowe DOCX i PDF generowane przez app.ewaluacja.pliki (odtwarzalne z wzorców)
 serwis/testy/wyniki/pliki/
+serwis/testy/wyniki/skany/

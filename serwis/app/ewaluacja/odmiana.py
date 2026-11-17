@@ -15,7 +15,10 @@ from .wzorce import KATALOG
 
 PRZYPADKI = ("gen", "dat", "acc", "inst", "loc")
 ZDANIE = {"gen": "Zarząd {} przyjął plan.", "dat": "Przekazano dokumenty {} w terminie.", "acc": "Reprezentuje {} pełnomocnik.",
-          "inst": "Umowę zawarto z {} w marcu.", "loc": "Pracował w {} przez rok."}
+          "inst": "Umowę zawarto pomiędzy {} a zarządem.", "loc": "Pracował w {} przez rok."}
+# Przyimek przed nazwą dopasowany do nagłosu oryginału po deanonimizacji (silnik.przyimek): surogat zaczyna się
+# zwykłą spółgłoską, oryginał „St…” wymaga „ze”
+PRZYIMKI = [("Stalmet", "inst", "Umowę zawarto z {} w marcu.", "Umowę zawarto ze {} w marcu.")]
 
 
 def _encje(tekst: str, fragmenty: list[str]) -> list[Encja]:
@@ -48,6 +51,11 @@ def main() -> None:
             powrot = silnik.deanonimizuj(sesja, odp)["tekst"]
             if powrot != ZDANIE[p].format(f):
                 bledy_powrotu.append(f"{lemat} {p}: „{powrot}” zamiast „{ZDANIE[p].format(f)}”")
+        for nazwa, p, zdanie, oczekiwane in PRZYIMKI:
+            if nazwa == lemat:
+                powrot = silnik.deanonimizuj(sesja, zdanie.format(pule.formy_nazwy(sur)[p]))["tekst"]
+                if powrot != oczekiwane.format(oczek[p]):
+                    bledy_powrotu.append(f"{lemat} przyimek: „{powrot}” zamiast „{oczekiwane.format(oczek[p])}”")
 
         # (3) Mianownik i miejscownik w jednym dokumencie: jeden surogat
         tekst = f"Spółka {lemat} zatrudnia 40 osób. Pracował w {oczek['loc']} przez rok."

@@ -1,17 +1,17 @@
 # Etap 2: pełny obieg
 
-Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 81 s (klasyfikacja: lista 0 s / 75 nazw, uzasadnienie 0 s / 75 nazw, pojedynczo 0 s / 51 nazw).
+Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 173 s (klasyfikacja: lista 26 s / 76 nazw, uzasadnienie 10 s / 76 nazw, pojedynczo 12 s / 52 nazw).
 
 | dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | wycieki złapane przez kontrolę | fałszywe alarmy kontroli | niespójne | sesje z błędem |
 |---|---|---|---|---|---|---|---|---|---|
 | 01_umowa_uslugi | 40 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 02_wezwanie_do_zaplaty | 32 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 03_notatka_spotkanie | 44 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 03_notatka_spotkanie | 46 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 04_umowa_o_prace | 31 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 05_korespondencja_email | 36 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 06_protokol_zgromadzenia | 39 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 07_akt_notarialny | 48 | 0 | 200 | 0 | 0 | 0 | 0 | 0 | 200 |
-| **razem** | 270 | 0 | 200 | 0 | 0 | 0 | 0 | 0 | 200 |
+| **razem** | 272 | 0 | 200 | 0 | 0 | 0 | 0 | 0 | 200 |
 
 ## 01_umowa_uslugi
 

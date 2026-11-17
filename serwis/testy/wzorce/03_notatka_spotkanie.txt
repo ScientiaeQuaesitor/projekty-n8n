@@ -27,5 +27,6 @@ b) {{OSOBA|Marta Sikora}}: poprawki ekranu zamówień, termin 16 maja.
 c) {{OSOBA|E. Marczak}}: eksport bazy z {{NAZWA|Farmaksu}}, termin 14 maja.
 d) {{OSOBA|Katarzyna Lis}}: zestawienie godzin, wysyłka na {{EMAIL|robert.golab@aptekarzpolski.example}}.
 e) {{OSOBA|Michałowi}} przydzielono przygotowanie środowiska zapasowego.
+f) Rozmowę ze {{OSOBA|Stefanem Wróblem}} w sprawie umowy ze {{FIRMA|Skalbudem}} przełożono na czwartek.
 
 Następne spotkanie: 23 maja, u klienta w {{MIEJSCE|Białymstoku}}. Notatkę sporządziła {{OSOBA|Katarzyna Lis}}.

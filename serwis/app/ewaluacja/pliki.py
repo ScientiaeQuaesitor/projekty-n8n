@@ -82,10 +82,10 @@ def docx_z_wzorca(tekst: str, wzorce) -> bytes:
     return b.getvalue()
 
 
-def pdf_z_wzorca(tekst: str, wzorce) -> bytes:
+def pdf_z_wzorca(tekst: str, wzorce, szer: int = 250, rozmiar: int = 10) -> bytes:
     d = fitz.open()
     font = fitz.Font(fontfile=CZCIONKA)
-    rozmiar, szer, x0, y_min, y_max = 10, 250, 72, 72, 770
+    x0, y_min, y_max = 72, 72, 770
     strona, y = None, y_max
 
     def wiersz(t: str) -> None:
