@@ -197,6 +197,8 @@ Szczegóły: `PRZEKAZANIE.md` 2.00, commity `ce3e823` do `7e36aab`.
 
 Wyniki: zestaw plikowy 7 DOCX + 7 PDF × 3 sesje: 0 wycieków, 0 alarmów kontroli, 0 różnic tekstu pliku, wszystkie pliki się otwierają; zepsute wyłącznie z niestabilności klasyfikacji. Zestaw tekstowy bez zmian (270 podmian, 0 wycieków, 1 zepsute, 0 różnic, 0 niespójnych). Czas zadania API dla fikcyjnego DOCX (4 strony tekstu): 72 s, w tym detekcja 33 s i klasyfikacja 39 s.
 
+Etap 5 (skany), częściowo: skan przez API daje DOCX odtworzony z akapitów OCR z kontrolą pliku (2.10.3; OCR własny, nie Docling), raport skanu ma obrazy stron. Skany wzorcowe (`ewaluacja.skany`, 170 i 120 DPI z szumem): CER 0,1 do 2,8%, po regule adresów e-mail przekłamanych przez OCR 0 wycieków, także z jednym błędem znaku. Raport jakości OCR liczy wiersze z numerem o błędnej sumie kontrolnej jako niepewne (miara słownikowa ich nie widziała). Tabela i dwie kolumny w skanie czytane poprawnie; sklejone wiersze tabeli nie mogą już wciągać imienia do adresu. Przyimek przed podmienioną nazwą dopasowany do nagłosu w obu kierunkach.
+
 Otwarte: zapis oryginału w danych wykonań n8n (PLAN 5.4), workflow błędów (5.3), test na prawdziwym DOCX lub PDF cyfrowym, odtworzenie dokumentu ze skanu (faza E), XLSX i XML (4.9).
 
 ### Domknięcie etapu 2 (2026-11-17)
