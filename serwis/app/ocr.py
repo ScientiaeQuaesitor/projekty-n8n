@@ -6,7 +6,9 @@ i wyznacza układ. Na stronach, gdzie ma słabe wiersze, stronę czyta też Easy
 lepszy odczyt. Wiersze, które po tym nadal są słabe, trafiają do raportu jakości zamiast udawać dobry tekst."""
 import csv
 import io
+import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -18,7 +20,8 @@ import regex as re
 from . import morf
 from .detekcja import regexy
 
-SZEROKOSC_PX = 2480          # A4 w 300 dpi; strony o niższej rozdzielczości są powiększane
+WATKI_TESSERACT = max(1, min(8, (os.cpu_count() or 2) // 2))   # połowa rdzeni, najwyżej 8 (pamięć: ok. 150 MB na proces)
+SZEROKOSC_PX = 2480         # A4 w 300 dpi; strony o niższej rozdzielczości są powiększane
 PROG_SLABY = 0.75            # poniżej tej oceny wiersz jest czytany drugim silnikiem
 PROG_ZLY = 0.6               # poniżej tej oceny po wyborze wiersz jest zgłaszany jako niepewny
 RX_WYPELNIACZ = re.compile(r"^[-=_.—–~*·]{2,}$")   # kreski i kropki dopełniające wiersz w aktach i formularzach
@@ -114,13 +117,22 @@ def oczysc(tekst: str) -> str:
 
 
 def strony_png(pdf: Path, katalog: Path) -> list[Path]:
-    subprocess.run(["pdftoppm", "-png", "-scale-to-x", str(SZEROKOSC_PX), "-scale-to-y", "-1", str(pdf), str(katalog / "s")],
-                   check=True, capture_output=True)
+    """Render stron do PNG, każda strona osobnym procesem pdftoppm równolegle (około 4 s na stronę w jednym procesie)."""
+    info = subprocess.run(["pdfinfo", str(pdf)], capture_output=True, text=True, check=True).stdout
+    stron = int(next(l.split()[1] for l in info.splitlines() if l.startswith("Pages:")))
+
+    def strona(n: int) -> None:
+        subprocess.run(["pdftoppm", "-png", "-f", str(n), "-l", str(n), "-scale-to-x", str(SZEROKOSC_PX), "-scale-to-y", "-1",
+                        str(pdf), str(katalog / f"s{n:05d}")], check=True, capture_output=True)
+
+    with ThreadPoolExecutor(max_workers=WATKI_TESSERACT) as pula:
+        list(pula.map(strona, range(1, stron + 1)))
     return sorted(katalog.glob("s*.png"))
 
 
 def tesseract(png: Path, strona: int, jezyk: str = "pol") -> list[Wiersz]:
-    p = subprocess.run(["tesseract", str(png), "stdout", "-l", jezyk, "--psm", "3", "tsv"], capture_output=True, text=True, check=True)
+    p = subprocess.run(["tesseract", str(png), "stdout", "-l", jezyk, "--psm", "3", "tsv"], capture_output=True, text=True, check=True,
+                       env={**os.environ, "OMP_THREAD_LIMIT": "1"})
     grupy: dict[tuple, list] = {}
     for w in csv.DictReader(io.StringIO(p.stdout), delimiter="\t", quoting=csv.QUOTE_NONE):
         if w["level"] != "5" or not (w["text"] or "").strip():
@@ -215,8 +227,12 @@ def czytaj(pdf: Path, drugi_silnik: bool = True) -> tuple[str, dict]:
     wszystkie: list[Wiersz] = []
     raport = {"strony": [], "silniki": ["tesseract"] + (["easyocr"] if drugi_silnik else [])}
     with tempfile.TemporaryDirectory() as tmp:
-        for nr, png in enumerate(strony_png(pdf, Path(tmp)), 1):
-            wiersze = tesseract(png, nr)
+        pngi = strony_png(pdf, Path(tmp))
+        # Tesseract na wszystkich stronach równolegle (osobne procesy, każdy na jednym wątku): przy dokumentach
+        # kilkusetstronicowych to główna oszczędność czasu (PLAN 6.3). EasyOCR dalej po kolei, bo sam używa wielu wątków.
+        with ThreadPoolExecutor(max_workers=WATKI_TESSERACT) as pula:
+            odczyty = list(pula.map(lambda a: tesseract(a[1], a[0]), enumerate(pngi, 1)))
+        for nr, (png, wiersze) in enumerate(zip(pngi, odczyty), 1):
             for w in wiersze:
                 w.ocena, _ = ocen(w.tekst)
             slabe = [w for w in wiersze if ocen(w.tekst)[1] >= 2 and (w.ocena < PROG_SLABY or w.pewnosc < 60)]

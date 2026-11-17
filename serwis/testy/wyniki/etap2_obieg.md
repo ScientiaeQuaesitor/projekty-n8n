@@ -1,6 +1,6 @@
 # Etap 2: pełny obieg
 
-Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 173 s (klasyfikacja: lista 26 s / 76 nazw, uzasadnienie 10 s / 76 nazw, pojedynczo 12 s / 52 nazw).
+Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 105 s (klasyfikacja: lista 2 s / 76 nazw, uzasadnienie 2 s / 76 nazw, pojedynczo 5 s / 52 nazw).
 
 | dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | wycieki złapane przez kontrolę | fałszywe alarmy kontroli | niespójne | sesje z błędem |
 |---|---|---|---|---|---|---|---|---|---|
