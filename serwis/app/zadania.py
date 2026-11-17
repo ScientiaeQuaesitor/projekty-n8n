@@ -148,7 +148,8 @@ def _wykonaj(c, z) -> None:
     zapisz_pamiec(pamiec)
     _etap(c, z["id"], "zapis")
     (katalog / nazwa_wy).write_bytes(wyjscie)
-    (katalog / "raport.html").write_text(raport.zbuduj(f"{dok['nazwa']}: raport porównawczy", oryginal_tekst, wynik, ocr_info),
+    (katalog / "raport.html").write_text(raport.zbuduj(f"{dok['nazwa']}: raport porównawczy", oryginal_tekst, wynik, ocr_info,
+                                                       raport.obrazy_stron(oryginal) if dok["typ"] == "pdf_skan" else None),
                                          encoding="utf-8")
     # Pełny wynik z oryginałami zostaje lokalnie w katalogu dokumentu; w bazie tylko liczniki
     (katalog / "wynik.json").write_text(json.dumps({k: v for k, v in wynik.items() if k != "tekst_oryginalu"},

@@ -93,7 +93,8 @@ def przetworz(pdf: pathlib.Path, args) -> None:
     czasy["deanonimizacja"] = round(time.time() - t0, 1)
     roznice = _roznice(tekst, powrot["tekst"])
     baza.with_suffix(".anon.md").write_text(wynik["tekst"], encoding="utf-8")
-    baza.with_suffix(".raport.html").write_text(raport.zbuduj(f"{pdf.name}: raport porównawczy", tekst, wynik, info.get("ocr")), encoding="utf-8")
+    baza.with_suffix(".raport.html").write_text(raport.zbuduj(f"{pdf.name}: raport porównawczy", tekst, wynik, info.get("ocr"),
+                                                                 raport.obrazy_stron(pdf) if info.get("skan") else None), encoding="utf-8")
     baza.with_suffix(".raport.json").write_text(json.dumps({**wynik, "roznice": roznice, "niepewne": powrot["niepewne"], "czasy": czasy},
                                                            ensure_ascii=False, indent=1), encoding="utf-8")
     print("czasy faz [s]:")

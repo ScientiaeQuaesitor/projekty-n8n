@@ -53,7 +53,15 @@ def _kontekst(tekst: str, a: int, b: int, n: int = 50) -> str:
             + html.escape(tekst[b:b + n]).replace("\n", " "))
 
 
-def zbuduj(tytul: str, oryginal: str, wynik: dict, ocr: dict | None = None) -> str:
+def obrazy_stron(pdf, dpi: int = 80) -> list[str]:
+    """Strony skanu jako obrazy JPEG w data URI, do porównania tekstu z OCR z dokumentem w raporcie lokalnym."""
+    import base64
+    import fitz
+    d = fitz.open(pdf)
+    return ["data:image/jpeg;base64," + base64.b64encode(s.get_pixmap(dpi=dpi).tobytes("jpg", jpg_quality=60)).decode() for s in d]
+
+
+def zbuduj(tytul: str, oryginal: str, wynik: dict, ocr: dict | None = None, obrazy: list[str] | None = None) -> str:
     anon = wynik["tekst"]
     podmiany = sorted(wynik["podmiany"], key=lambda p: p["start"])
     lewe, prawe, przes = [], [], 0
@@ -154,6 +162,14 @@ def zbuduj(tytul: str, oryginal: str, wynik: dict, ocr: dict | None = None) -> s
                           "nie ma oryginałów z mapy sesji ani niepodmienionych numerów, nie zostały obrazy ani załączniki.</p>")
                        + f"<p>Usunięte z pliku: {usuniete}.</p>")
     naglowek_oryginalu = "Tekst odczytany ze skanu (OCR, może zawierać błędy odczytu)" if ocr else "Oryginał"
+    sekcja_obrazy = ""
+    if obrazy:
+        # Obraz stron obok tekstu: tekst z OCR skleja wiersze w akapity i ma błędy odczytu, więc wygląda inaczej niż
+        # dokument; porównanie z obrazem pokazuje, czy błąd jest w odczycie, czy w anonimizacji
+        sekcja_obrazy = ("<details><summary><b>Skan: obrazy stron</b> (do porównania z tekstem odczytanym przez OCR; "
+                         "numery niepewnych wierszy są w punkcie o jakości OCR)</summary>"
+                         + "".join(f'<p>Strona {i}</p><img src="{src}" style="max-width:100%;border:1px solid #bbb">'
+                                   for i, src in enumerate(obrazy, 1)) + "</details>")
 
     liczniki = Counter(p["typ"] for p in podmiany)
     unikalne = sorted({(p["typ"], p["oryginal"], p["surogat"]) for p in podmiany})
@@ -187,6 +203,7 @@ const e=document.getElementById(location.hash.slice(1));if(e)e.classList.add("ce
 {sekcja_ocr}
 {sekcja_plik}
 </div>
+{sekcja_obrazy}
 <p class="leg">{legenda}</p>
 <p>Najedź na zaznaczenie, żeby zobaczyć drugą stronę podmiany.</p>
 <div class="kol"><div><h3>{naglowek_oryginalu}</h3>{_zaznacz(oryginal, lewe)}</div><div><h3>Wersja zanonimizowana</h3>{_zaznacz(anon, prawe)}</div></div>
