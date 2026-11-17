@@ -268,8 +268,20 @@ def _surogat(sesja: Sesja, kat: str, an: dict, przyp: str, ctx) -> tuple[str, di
         baza, _ = _surogat(sesja, kat, an2, przyp2, ctx)
         dane["alias"] = dluzszy
     else:
-        pula = pule.NAZWY if kat == "NAZWA" else (pule.FIRMY_F if rodzaj == "f" and liczba == "sg" else pule.FIRMY_M)
-        baza = sesja.z_puli(pula, sesja.uzyte("FIRMA", "NAZWA"), lambda s: s.lower()[:-1] in ctx.tekst_l, pule.zapas_nazwy)
+        # Surogat zgodny z liczbą i rodzajem oryginału, żeby orzeczenie i przydawki w zdaniu dalej się z nim zgadzały:
+        # „Naleśniki … oświadczają” -> „Tarvony … oświadczają”, „Przedsiębiorstwem” -> „Tarvonem” (nijaki „Tarvono”)
+        meskie = pule.NAZWY if kat == "NAZWA" else pule.FIRMY_M
+        if liczba == "pl":
+            pula, zapas = [pule.nazwa_mnoga(m) for m in meskie], lambda rng: pule.nazwa_mnoga(pule.zapas_nazwy(rng))
+        elif rodzaj == "n":
+            pula = [pule.nazwa_nijaka(m) for m in meskie if m.endswith("n")]
+            zapas = lambda rng: pule.nazwa_nijaka(pule.zapas_nazwy(rng))
+        else:
+            pula, zapas = (pule.FIRMY_F if rodzaj == "f" and kat == "FIRMA" else meskie), pule.zapas_nazwy
+        uzyte = sesja.uzyte("FIRMA", "NAZWA")
+        # Jedna nazwa bazowa nie może dać dwóch surogatów („Tarvon” i „Tarvony”), bo odtwarzanie myliłoby formy
+        rdzenie_uzyte = {u.rstrip("yo") for u in uzyte}
+        baza = sesja.z_puli(pula, uzyte, lambda s: s.lower()[:-1] in ctx.tekst_l or s.rstrip("yo") in rdzenie_uzyte, zapas)
         if (kat, an["klucz"]) in ctx.dlugie:
             dane["sufiks"] = pule.SUFIKSY_FIRM[sesja.losowe("SUFIKS", an["klucz"]).randrange(len(pule.SUFIKSY_FIRM))]
     sesja.ustaw(kat, an["klucz"], baza, dane)

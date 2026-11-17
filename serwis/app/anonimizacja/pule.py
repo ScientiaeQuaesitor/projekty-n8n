@@ -107,11 +107,29 @@ def formy_nazwiska(nazwisko: str, plec: str, liczba: str = "sg") -> dict[str, st
 
 
 def formy_nazwy(nazwa: str) -> dict[str, str]:
-    """Wymyślona nazwa firmy lub produktu: rodzaj żeński dla zakończonych na -a, męski w pozostałych."""
+    """Wymyślona nazwa firmy lub produktu. Wzór odmiany wynika z końcówki: -a rodzaj żeński, -y liczba mnoga
+    („Tarvony”, „Tarvonów”), -o rodzaj nijaki („Tarvono”, „Tarvonie”), w pozostałych rodzaj męski. Pule i generator
+    zapasowy dają nazwy męskie zakończone spółgłoską twardą, więc końcówki -y i -o występują tylko w nazwach z
+    nazwa_mnoga i nazwa_nijaka."""
+    r = nazwa[:-1]
     if nazwa.endswith("a"):
-        r = nazwa[:-1]
         return {"nom": nazwa, "gen": r + "y", "dat": r + "ie", "acc": r + "ę", "inst": r + "ą", "loc": r + "ie", "voc": r + "o"}
+    if nazwa.endswith("y"):
+        return {"nom": nazwa, "gen": r + "ów", "dat": r + "om", "acc": nazwa, "inst": r + "ami", "loc": r + "ach", "voc": nazwa}
+    if nazwa.endswith("o"):
+        return {"nom": nazwa, "gen": r + "a", "dat": r + "u", "acc": nazwa, "inst": r + "em", "loc": r + "ie", "voc": nazwa}
     return {"nom": nazwa, "gen": nazwa + "u", "dat": nazwa + "owi", "acc": nazwa, "inst": nazwa + "em", "loc": nazwa + "ie", "voc": nazwa + "ie"}
+
+
+def nazwa_mnoga(nazwa: str) -> str:
+    """Surogat w liczbie mnogiej dla nazwy takiej jak „Naleśniki Babci Zosi”, „Zakłady Chemiczne”: „Tarvon” -> „Tarvony”."""
+    return nazwa + "y"
+
+
+def nazwa_nijaka(nazwa: str) -> str:
+    """Surogat w rodzaju nijakim („Przedsiębiorstwo …”): „Tarvon” -> „Tarvono”, miejscownik „Tarvonie”. Tylko z nazw
+    zakończonych na -n, bo przed -ie inne spółgłoski wymieniają się (t na ci, r na rz)."""
+    return nazwa + "o"
 
 
 _NAGLOSY = ["B", "D", "G", "K", "L", "M", "N", "P", "R", "S", "T", "V", "Z", "Br", "Dr", "Gr", "Kr", "Pr", "Tr", "Kl", "Pl", "St"]
