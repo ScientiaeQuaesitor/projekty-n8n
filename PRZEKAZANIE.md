@@ -1,6 +1,6 @@
 # Przekazanie do następnej sesji
 
-Stan na 2026-11-16, godz. 21:45. Pełny opis decyzji i pomiarów: `specyfikacja-v2.md` w tym katalogu. Ten plik mówi, gdzie przerwano pracę i co zrobić najpierw.
+Stan na 2026-11-17, godz. 22:05. Pełny opis decyzji i pomiarów: `specyfikacja-v2.md` w tym katalogu. Ten plik mówi, gdzie przerwano pracę i co zrobić najpierw. Plan: `PLAN.md` (faza A zamknięta, z fazy B zrobione 3.1, 3.2, 3.3). Katalog jest repozytorium Git (gałąź main), historia zmian w `git log`.
 
 ## 1. Co jest zbudowane
 
@@ -12,6 +12,12 @@ Stan na 2026-11-16, godz. 21:45. Pełny opis decyzji i pomiarów: `specyfikacja-
 1.6. Zestaw wzorcowy: 7 dokumentów w `serwis/testy/wzorce/`, znaczniki `{{TYP|…}}` (ma zostać podmienione) i `{{ZOSTAW|…}}` (ma zostać bez zmian).
 
 ## 2. Nad czym przerwano
+
+2.0. STAN 2026-11-17 WIECZOREM (ważniejszy niż 2.1 do 4.4, które opisują 16.11). Użytkownik po przejrzeniu raportu aktu stwierdził, że „oryginał w raporcie jest inny” niż dokument, który dał, i że to „inny dokument”. Na jego polecenie powstał jeden folder oryginałów do testów (`serwis\testy\prawdziwe\oryginaly\`, zasada 6.5.0), a stary akt przeszedł do archiwum. Użytkownik wrzucił do folderu plik `akt notarialny pierwsze strony.pdf` (5 stron, skan bez warstwy tekstowej). SPRAWDZONE: ma identyczną sumę SHA-256 (`f6e8b453…10ac`) jak zarchiwizowany `akt_notarialny.pdf`, czyli to ten sam plik, na którym zrobiono wszystkie dotychczasowe pomiary i raport. Kolumna „Oryginał” w raporcie to tekst z OCR tego skanu, nie obraz dokumentu (OCR ma błędy, np. „0 ustanowieniu”, „2019 1.”, i skleja wiersze w akapity).
+2.0.1. Pierwszy krok następnej sesji: powiedzieć użytkownikowi wprost, że wrzucony plik jest bitowo identyczny z tym, z którego powstał raport, i zapytać, co konkretnie różni raport od dokumentu (błędy OCR, brak fragmentów, układ, inny dokument niż zamierzał wrzucić). Nie uruchamiać pomiaru, zanim to się wyjaśni.
+2.0.2. Jeśli chodzi o różnice OCR: rozważyć w raporcie obraz strony skanu obok tekstu z OCR i podpis kolumny „Tekst odczytany ze skanu (OCR)” zamiast „Oryginał”; ocenić, czy ocena jakości OCR „dobra” (4 niepewne wiersze na 232) nie zaniża skali błędów.
+2.0.3. Jeśli to inny dokument: użytkownik podmienia plik w folderze oryginałów, potem `python -m app.ewaluacja.dokument` (wszystkie pliki z folderu; najpierw podać liczbę stron i szacowany czas OCR, ok. 20 do 30 s na stronę).
+2.0.4. Użytkownik był dziś zirytowany: odpowiadać wyłącznie po polsku (także komunikaty pośrednie), zwięźle, nie szukać plików poza folderem oryginałów.
 
 2.1. Wymaganie użytkownika: żadnych list pojęć w kodzie. Ogólne nazwy własne (ustawa, kodeks, rodzaj orzeczenia lub dokumentu, nazwa sądu, organ publiczny) mają zostać, podmieniane mają być tylko dane identyfikujące strony. Automatyzacja ma być uniwersalna, nie strojona pod jeden dokument.
 2.2. Wdrożone rozwiązanie: polityka kategorii. LLM przypisuje każdej wykrytej nazwie kategorię z kontekstu (`detekcja/llm.py: klasyfikuj`, kategorie OSOBA, FIRMA, PRODUKT, MIEJSCE, INSTYTUCJA, AKT_PRAWNY, DOKUMENT, POJECIE). Polityka w `anonimizacja/silnik.py`: `KATEGORIE_ZOSTAW` i `TYP_KATEGORII`.
@@ -27,6 +33,8 @@ Stan na 2026-11-16, godz. 21:45. Pełny opis decyzji i pomiarów: `specyfikacja-
 3.4. Znane wyniki na akcie z wersji jednoocenowych: wariant „lista” błędnie uznał radę miejską, sąd i portal ksiąg wieczystych za firmy. Wariant „uzasadnienie” zachował je poprawnie, ale popsuł zestaw wzorcowy. Stąd głosowanie.
 
 ## 4. Pierwsze kroki w następnej sesji
+
+4.0. AKTUALNE: zacząć od 2.0.1. Punkty 4.1 do 4.4 poniżej są historyczne (16.11); ścieżka aktu i komenda pomiaru zmieniły się (zasada 6.5.0), a pomiar zestawu to teraz `python -m app.ewaluacja.obieg` (domyślnie 200 sesji).
 
 4.1. Zmierzyć akt z głosowaniem (kilka do kilkunastu minut, klasyfikacja około 60 nazw w trzech wariantach). W katalogu `serwis`:
 
