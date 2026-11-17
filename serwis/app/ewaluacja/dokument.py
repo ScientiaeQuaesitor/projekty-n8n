@@ -1,9 +1,15 @@
 """Pełny przebieg na prawdziwym pliku PDF: ekstrakcja, detekcja, anonimizacja, obieg, raport HTML.
 
-Uruchomienie w kontenerze:  python -m app.ewaluacja.dokument /srv/testy/prawdziwe/plik.pdf [--od-nowa] [--klasyfikator model]
+Oryginały do testów wrzuca użytkownik do jednego folderu: serwis/testy/prawdziwe/oryginaly/ (w kontenerze
+/srv/testy/prawdziwe/oryginaly/). Tylko stamtąd brane są pliki. Wyniki trafiają do
+serwis/testy/prawdziwe/wyniki/<nazwa pliku>/ (tekst z OCR, encje, pamięć ocen, tekst zanonimizowany, raport HTML i JSON).
 
-Wypisuje wyłącznie liczniki, czasy faz i tekst zanonimizowany. Oryginał, raport porównawczy i pamięć ocen
-klasyfikacji (plik.klasyfikacja_<model>.json) zostają w plikach obok PDF."""
+Uruchomienie w kontenerze:
+  python -m app.ewaluacja.dokument                  wszystkie pliki z folderu oryginałów
+  python -m app.ewaluacja.dokument nazwa.pdf        jeden plik z folderu oryginałów
+Opcje: [--od-nowa] [--klasyfikator model] [--pokaz liczba_znaków]
+
+Wypisuje wyłącznie liczniki, czasy faz i początek tekstu zanonimizowanego, nigdy oryginału."""
 import argparse
 import collections
 import json
@@ -20,15 +26,31 @@ from .obieg import _roznice
 from .ocr import miary
 
 
+PRAWDZIWE = pathlib.Path("/srv/testy/prawdziwe")
+ORYGINALY = PRAWDZIWE / "oryginaly"
+WYNIKI_PRAWDZIWE = PRAWDZIWE / "wyniki"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("pdf")
+    ap.add_argument("pdf", nargs="?", help="nazwa pliku w folderze oryginałów; bez niej wszystkie pliki PDF z folderu")
     ap.add_argument("--od-nowa", action="store_true", help="powtórz ekstrakcję i detekcję zamiast brać je z plików pośrednich")
-    ap.add_argument("--pokaz", type=int, default=3000, help="ile znaków tekstu zanonimizowanego wypisać")
+    ap.add_argument("--pokaz", type=int, default=0, help="ile znaków tekstu zanonimizowanego wypisać")
     ap.add_argument("--klasyfikator", default=llm.LLM_MODEL_KLASYFIKACJA, help="model Ollamy do klasyfikacji kategorii")
     args = ap.parse_args()
-    pdf = pathlib.Path(args.pdf)
-    baza = pdf.with_suffix("")
+    pliki = [ORYGINALY / pathlib.Path(args.pdf).name] if args.pdf else sorted(ORYGINALY.glob("*.pdf"))
+    if not pliki or not all(p.exists() for p in pliki):
+        raise SystemExit(f"Brak plików PDF w {ORYGINALY} (albo podanego pliku). Oryginały wrzuca się do "
+                         f"serwis/testy/prawdziwe/oryginaly/.")
+    for pdf in pliki:
+        print(f"=== {pdf.name}")
+        przetworz(pdf, args)
+
+
+def przetworz(pdf: pathlib.Path, args) -> None:
+    katalog = WYNIKI_PRAWDZIWE / pdf.stem
+    katalog.mkdir(parents=True, exist_ok=True)
+    baza = katalog / pdf.stem
     p_tekst, p_encje = baza.with_suffix(".tekst.md"), baza.with_suffix(".encje.json")
     czasy: dict = {}
 
@@ -57,8 +79,8 @@ def main() -> None:
         czasy["detekcja"] = round(time.time() - t0, 1)
         p_encje.write_text(json.dumps([e.jako_dict() for e in encje], ensure_ascii=False), encoding="utf-8")
 
-    # Oceny klasyfikacji zapisywane po każdej paczce obok PDF: przerwany pomiar wznawia się bez powtórnych pytań
-    p_pamiec = pamiec_plik.sciezka(pdf.parent, baza.name + ".klasyfikacja_", args.klasyfikator)
+    # Oceny klasyfikacji zapisywane po każdej paczce w katalogu wyników: przerwany pomiar wznawia się bez powtórnych pytań
+    p_pamiec = pamiec_plik.sciezka(katalog, baza.name + ".klasyfikacja_", args.klasyfikator)
     pamiec = pamiec_plik.wczytaj(p_pamiec)
     zapisz_pamiec = pamiec_plik.zapisywacz(p_pamiec, args.klasyfikator)
 
@@ -85,8 +107,10 @@ def main() -> None:
     print("różnic po obiegu:", len(roznice), "; niepewnych:", len(powrot["niepewne"]))
     # Same liczniki: na liście zostawionych mogłaby się znaleźć źle oceniona nazwa własna
     print("zostawione (kategoria):", dict(collections.Counter(wynik["zostawione"].values())))
-    print("=" * 30)
-    print(wynik["tekst"][:args.pokaz])
+    print("raport:", f"serwis/testy/prawdziwe/wyniki/{pdf.stem}/{pdf.stem}.raport.html")
+    if args.pokaz:
+        print("=" * 30)
+        print(wynik["tekst"][:args.pokaz])
 
 
 if __name__ == "__main__":
