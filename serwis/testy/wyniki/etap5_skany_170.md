@@ -1,16 +1,16 @@
 # Etap 5: skany wzorcowe
 
-Render 170 DPI, szum σ=14, obrót 0,4°, JPEG 60. Czas: 399 s. Wycieki i zepsute liczone na jednej sesji (skan-0).
+Render 170 DPI, szum σ=14, obrót 0,4°, JPEG 60. Czas: 247 s. Wycieki i zepsute liczone na jednej sesji (skan-0).
 
 | dokument | strony | CER % | numery dokładnie | nazwy dokładnie | OCR: jakość | OCR: niepewne wiersze | podmiany | wycieki dokładne | wycieki z 1 błędem | zepsute | kontrola |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 01_umowa_uslugi | 2 | 1.3 | 9/12 | 20/26 | dobra | 0 | 40 | 0 | 0 | 0 | ok |
-| 02_wezwanie_do_zaplaty | 2 | 0.9 | 6/11 | 17/19 | dobra | 0 | 32 | 0 | 0 | 0 | ok |
-| 03_notatka_spotkanie | 2 | 0.1 | 1/2 | 37/37 | dobra | 0 | 46 | 0 | 0 | 0 | ok |
-| 04_umowa_o_prace | 2 | 0.8 | 5/7 | 23/23 | dobra | 1 | 31 | 0 | 0 | 0 | ok |
-| 05_korespondencja_email | 2 | 2.6 | 8/12 | 19/20 | dobra | 1 | 35 | 0 | 0 | 0 | ok |
-| 06_protokol_zgromadzenia | 2 | 1.5 | 8/9 | 21/23 | dobra | 0 | 39 | 0 | 0 | 0 | ok |
-| 07_akt_notarialny | 3 | 0.3 | 12/13 | 29/30 | dobra | 0 | 47 | 0 | 0 | 0 | ok |
+| 01_umowa_uslugi | 2 | 1.3 | 9/12 | 20/26 | średnia | 3 | – | – | – | – | – |
+| 02_wezwanie_do_zaplaty | 2 | 0.9 | 6/11 | 17/19 | średnia | 3 | – | – | – | – | – |
+| 03_notatka_spotkanie | 2 | 0.1 | 1/2 | 37/37 | dobra | 1 | – | – | – | – | – |
+| 04_umowa_o_prace | 2 | 0.8 | 5/7 | 23/23 | średnia | 2 | – | – | – | – | – |
+| 05_korespondencja_email | 2 | 2.6 | 8/12 | 19/20 | średnia | 3 | – | – | – | – | – |
+| 06_protokol_zgromadzenia | 2 | 1.5 | 8/9 | 21/23 | dobra | 1 | – | – | – | – | – |
+| 07_akt_notarialny | 3 | 0.3 | 12/13 | 29/30 | dobra | 1 | – | – | – | – | – |
 
 ## 01_umowa_uslugi: encje odczytane z błędem (9)
 

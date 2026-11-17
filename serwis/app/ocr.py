@@ -240,8 +240,12 @@ def czytaj(pdf: Path, drugi_silnik: bool = True) -> tuple[str, dict]:
             if drugi_silnik and slabe:
                 zamiany = _polacz(wiersze, easyocr_strona(png), nr)
             zle = [i + 1 for i, w in enumerate(wiersze) if ocen(w.tekst)[1] >= 3 and w.ocena < PROG_ZLY]
+            # Wiersz z numerem o błędnej sumie kontrolnej albo adresem e-mail z przekłamanym „@”: konkretny ślad błędu
+            # odczytu, którego miara słownikowa nie widzi (pomiar skanów wzorcowych, PLAN 6.2)
+            podejrzane = [i + 1 for i, w in enumerate(wiersze) if any(not e.pewna for e in regexy.wykryj(w.tekst))]
+            zle = sorted(set(zle) | set(podejrzane))
             raport["strony"].append({"strona": nr, "wierszy": len(wiersze), "slabych_przed": len(slabe), "zamienionych": zamiany,
-                                     "niepewnych_po": len(zle), "niepewne_wiersze": zle})
+                                     "niepewnych_po": len(zle), "niepewne_wiersze": zle, "z_podejrzanym_numerem": len(podejrzane)})
             wszystkie += wiersze
     rozmiar = subprocess.run(["pdfimages", "-list", str(pdf)], capture_output=True, text=True).stdout.splitlines()[2:3]
     szer_px = int(rozmiar[0].split()[3]) if rozmiar and rozmiar[0].split()[3].isdigit() else None
