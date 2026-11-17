@@ -68,7 +68,7 @@ docker compose exec anonimizator python -m app.ewaluacja.obieg --klasyfikator ge
 6.4. Tekst zanonimizowany ma zachować sens: nazwy ogólne zostają, w nazwach opisowych zmienia się tylko człon identyfikujący, daty, kwoty i numery wewnętrzne („załącznik numer 2”) zostają.
 6.5. Prawdziwe dokumenty (`serwis/testy/prawdziwe/`) przetwarzać lokalnie i nie wypisywać ich oryginalnej treści do rozmowy. Oceniać po wersji zanonimizowanej, licznikach i kształtach. Wycieki ocenia użytkownik w raporcie HTML.
 6.6. Długich pomiarów nie uruchamiać bez uprzedzenia o czasie. Użytkownik przerwał pomiar trwający kilka minut.
-6.7. Lokalne repozytorium Git w katalogu projektu (od 2026-11-17, gałąź `main`, bez zdalnego). `.gitignore` wyklucza prawdziwe dane (`serwis/testy/prawdziwe/`, `serwis/dane/`, `n8n/`), sekrety (`.env`) i pamięć podręczną pomiarów (`serwis/testy/wyniki/cache_*.json`). Każda zmiana kodu kończy się commitem z wynikiem pomiaru zestawu w opisie. Przed `git add` sprawdzić `git status`, czy nie wchodzi nic z danych prawdziwych.
+6.7. Lokalne repozytorium Git w katalogu projektu (od 2026-11-17, gałąź `main`, bez zdalnego). `.gitignore` wyklucza prawdziwe dane (`serwis/testy/prawdziwe/`, `serwis/dane/`, `n8n/`, dowiązanie `dokumenty` do `training-mateusz/shared/anonimizacja`), sekrety (`.env`) i pamięć podręczną pomiarów (`serwis/testy/wyniki/cache_*.json`). Każda zmiana kodu kończy się commitem z wynikiem pomiaru zestawu w opisie. Przed `git add` sprawdzić `git status`, czy nie wchodzi nic z danych prawdziwych.
 
 ## 7. Środowisko
 
