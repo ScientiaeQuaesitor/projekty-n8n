@@ -18,7 +18,7 @@ Stan na 2026-11-16. Dokument zastępuje podejście z v1 (`workflow.json`, `zrodl
 2.6. Tryby pracy budowane kolejno na jednym rdzeniu: A (dwa kroki), potem B (chatbot), potem C (wsad).
 2.7. Sesja to „sprawa”: może zawierać wiele dokumentów i ma jedną wspólną mapę surogatów.
 2.8. Jeden użytkownik, bez uprawnień i kont.
-2.9. Wejście: PDF cyfrowy, PDF skan, DOCX.
+2.9. Wejście: PDF cyfrowy, PDF skan, DOCX. Później także XLSX i XML (zgłoszone 2026-11-17, PLAN 4.9).
 2.10. Wyjście zanonimizowane zachowuje typ pliku i układ:
 2.10.1. PDF cyfrowy: podmiana w miejscu (PyMuPDF).
 2.10.2. DOCX: podmiana w miejscu (python-docx).
@@ -46,6 +46,7 @@ Stan na 2026-11-16. Dokument zastępuje podejście z v1 (`workflow.json`, `zrodl
 4.3. `docling` (istniejący kontener `docling-serve-cpu` z projektu compose `training-mateusz`, adres w sieci: `http://docling:5001`): ekstrakcja tekstu i struktury, OCR skanów. Wersja CPU, więc nie konkuruje z LLM o VRAM.
 4.4. Ollama (zainstalowana natywnie na hoście, z kontenerów pod `http://host.docker.internal:11434`): lokalny LLM do uzupełniania detekcji, klastrowania wariantów i fallbacku odmiany.
 4.5. `anonimizator` ma własny compose w `serwis/docker-compose.yml` i dołącza do sieci `training-mateusz_default`. Z n8n: `http://anonimizator:8000`, z hosta: `http://127.0.0.1:8090`.
+4.5.1. ZMIANA 2026-11-17 (zastępuje 4.1, 4.3 i 4.5 w części o sieci): projekt ma własny stos compose `anonimizacja` w `serwis/docker-compose.yml`: `anonimizator`, własne n8n `anonimizacja-n8n` pod `http://127.0.0.1:5687` z bazą Postgres i własny Docling. Stos nie zależy od `training-mateusz` (n8n 5686 bez zmian). Workflowy projektu działają na 5687 (serwer MCP `n8n-anonimizacja`).
 4.6. Docker ma limit 7,6 GB RAM na wszystkie kontenery (n8n, Postgres, Qdrant, Docling, anonimizator).
 
 ### Stan etapu 0 (2026-11-16): zakończony
@@ -183,6 +184,23 @@ Wymaganie: żadnych list pojęć w kodzie. Ogólne nazwy własne (ustawa, kodeks
 
 Pomiary: zestaw wzorcowy z głosowaniem i gemmą 261 podmian, 0 wycieków, 0 zepsutych, 0 różnic (356 s klasyfikacji od zera). `qwen3-vl:8b` w roli klasyfikatora: 7 wycieków, 2 zepsute, 564 s. Akt z głosowaniem nie został jeszcze zmierzony.
 
+### Domknięcie etapu 2 (2026-11-17)
+
+Szczegóły i historia zmian: `PRZEKAZANIE.md` 5.15 do 5.20 i 5.2, 5.3; repozytorium Git w katalogu projektu (od 2026-11-17).
+
+1. Pomiar powtarzalny. Surogaty losuje ziarno sesji, więc jeden przebieg zestawu nie dowodzi poprawności (2 z 12 przebiegów miały kolizję surogatów). Pomiar `obieg` liczy każdy wzorzec na 200 sesjach o stałych id (`wzorzec-0…199`), około 1,5 min przy zapamiętanych ocenach.
+2. Kolizje surogatów usunięte: surogat numeru i numeru domu nie może wystąpić w tekście oryginału ani powtórzyć innego surogatu sesji; osoby o tym samym nazwisku i różnym inicjale nie dostają surogatów imion i inicjałów na tę samą literę. Wynik: 0 błędów na 1000 sesjach.
+3. Pamięć ocen klasyfikacji z odciskiem promptu, wariantu, opcji i modelu; zapis po każdej paczce zapytań, więc przerwany pomiar wznawia się bez powtórnych pytań. Czasy faz w wyniku (`czasy`).
+4. Nazwy ogólne (zasada użytkownika: akty prawne, ich numery, nazwy ustaw, ministerstw i inne nazwy ogólne nigdy się nie zmieniają): numer aktu w układzie rok/numer chroniony jak „Dz. U.”, zakres pisany małymi literami nie jest nazwą własną, prompt odróżnia nazwę wybraną przez właściciela (FIRMA) od określenia rodzaju podmiotu z miejscowością (INSTYTUCJA, POJECIE), przy podzielonych głosach nazwa z samych wyrazów pospolitych zostaje. Reguła „każda nazwa ze zwykłych słów zostaje” odrzucona: wyciekały nazwy firm i miejscowości będące zwykłymi słowami.
+5. Bezpiecznik wycieku na tekście (wcześniejsza część 7.10): oryginały z mapy sesji szukane dosłownie w wyniku i ponowna detekcja numerów regexami, pole `kontrola` ze statusem `ok` albo `do_przegladu`. Test wstrzykiwania: 269 z 269 cofniętych podmian złapanych; od razu wykrył prawdziwy wyciek miejscowości w nazwie sądu.
+6. Głosowanie etapowe: dwa warianty zawsze, trzeci przy niezgodzie kategorii i zawsze dla budowy opisowej; decyzje identyczne z pełnym głosowaniem, trzeci głos potrzebny dla około 70% nazw. Remis kategorii rozstrzyga wcześniejszy wariant (wcześniej wynik zależał od kolejności haszy w procesie).
+7. Inny model jako głos: Bielik 11B v3 nie poprawia trafności (najlepsza trójka z nim zamienia jeden błąd szumu na wyciek) i jest 5 razy wolniejszy. Gemma 4 e4b zostaje jedynym klasyfikatorem. Model 8B przy temperaturze 0 zmienia około 3% ocen między uruchomieniami; głosowanie, reguły i bezpiecznik ograniczają skutki, nie usuwają przyczyny.
+8. Surogat miejscowości z tej samej klasy nagłosu co oryginał (koniec „we Elblągu”).
+
+Wyniki: zestaw wzorcowy (7 dokumentów, 269 podmian, 200 sesji) 0 wycieków, 0 różnic po obiegu, 0 fałszywych alarmów kontroli, 1 fragment zepsuty („Portalu Podsystemu Dostępu do Bazy Danych Ksiąg Wieczystych”, niestabilna ocena modelu). Akt notarialny (skan, 13 tys. znaków): 119 podmian, 0 różnic po obiegu, kontrola `ok`, wszystkie pojęcia ogólne zgłoszone przez użytkownika bez zmian, wynik identyczny w kolejnych uruchomieniach; klasyfikacja 47 nazw od zera około 3 min (lista 29 s, uzasadnienie 59 s, pojedynczo 106 s).
+
+Otwarte po etapie 2: nazwy sądów we wzorcach oznaczone w całości jako firma (do zmiany na sąd zostaje, miejscowość podmieniana), niestabilność klasyfikacji nazw złożonych ze zwykłych słów, raport HTML do szybkiego przeglądu (PLAN 3.2).
+
 ### Etap 2, część 1: scalanie i Morfeusz
 
 Część 1: scalanie zakresów (`serwis/app/detekcja/scal.py`) i warstwa Morfeusz2 (`serwis/app/morf.py`). Wyniki w `serwis/testy/wyniki/etap2_scalanie.md`, pomiar: `docker compose exec anonimizator python -m app.ewaluacja.scalanie`.
@@ -234,7 +252,7 @@ Projekt części 2 (surogaty i deanonimizacja), do potwierdzenia:
 7.7. Przydział surogatów: ten sam typ, rodzaj i liczba, zbliżona długość. Surogat nie może występować w żadnym dokumencie sesji.
 7.8. Podmiana: surogat w tym samym przypadku co wystąpienie, w pliku wyjściowym zgodnym z typem wejścia (punkt 2.10).
 7.9. Czyszczenie: metadane, obrazy, komentarze, śledzenie zmian.
-7.10. Kontrola wycieku na gotowym pliku: ponowna ekstrakcja tekstu z pliku wynikowego, drugi przebieg NER i regexów. Każda wykryta encja musi być znanym surogatem lub fałszywką. Inaczej dokument dostaje status „do przeglądu” i nie jest udostępniany.
+7.10. Kontrola wycieku na gotowym pliku: ponowna ekstrakcja tekstu z pliku wynikowego, drugi przebieg NER i regexów. Każda wykryta encja musi być znanym surogatem lub fałszywką. Inaczej dokument dostaje status „do przeglądu” i nie jest udostępniany. Część tekstowa (oryginały z mapy sesji i regexy na tekście wynikowym) działa od 2026-11-17 (`silnik.kontrola_wycieku`); na pliku do zrobienia w etapie 3.
 7.11. Raport porównawczy HTML.
 
 ## 8. Deanonimizacja tekstu

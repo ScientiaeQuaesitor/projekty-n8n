@@ -15,6 +15,8 @@ Stan na 2026-11-16. Uzupełnia `PRZEKAZANIE.md` (gdzie przerwano) i `specyfikacj
 
 ## 2. Faza A: domknięcie etapu 2
 
+ZAMKNIĘTA 2026-11-17 (wyniki: `specyfikacja-v2.md`, „Domknięcie etapu 2”). Z fazy B zrobione 3.1 (bezpiecznik) i 3.3 (przyimek). Odstępstwa od planu: 2.5 dało około 13% oszczędności zamiast „wyraźnie niższego czasu” i zostało, bo decyzje są identyczne; inny model jako głos (Bielik) sprawdzony i odrzucony.
+
 2.1. Pamięć klasyfikacji w pomiarze dokumentu. `ewaluacja/dokument.py` nie przekazuje `pamiec` do `silnik.anonimizuj`, więc przerwany pomiar aktu zaczyna od zera. Zmiana: plik pamięci obok PDF w `testy/prawdziwe/` (zostaje lokalnie), zapis po każdym wariancie głosowania. Gotowe, gdy: przerwany pomiar wznawia się bez powtórnych pytań do modelu.
 2.2. Klucz pamięci z odciskiem promptu i modelu (`sha1(PROMPT_KLASYFIKACJA + wariant + model)`), w `dokument.py` i `obieg.py`. Zamyka sprawę 5.2 z przekazania: po zmianie promptu stare oceny nie są używane, pliku nie trzeba usuwać ręcznie.
 2.3. Czasy faz w `dokument.py`: ekstrakcja, detekcja, klasyfikacja (osobno każdy wariant), podmiana. Bez tego nie da się ocenić kroku 2.5.
