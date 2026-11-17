@@ -293,9 +293,62 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
         podmiany.append({"start": z.start, "end": z.end, "typ": z.typ, "oryginal": z.tekst, "surogat": nowe})
     out.append(tekst[pos:])
     czasy["podmiana"] = round(time.time() - t_podmiana, 1)
-    return {"tekst": "".join(out), "podmiany": podmiany, "pominiete": pominiete, "kategorie": kategorie,
+    wyjscie = "".join(out)
+    t0 = time.time()
+    kontrola = kontrola_wycieku(sesja, wyjscie)
+    czasy["kontrola"] = round(time.time() - t0, 1)
+    return {"tekst": wyjscie, "kontrola": kontrola, "podmiany": podmiany, "pominiete": pominiete, "kategorie": kategorie,
             "odrzucone_jako_ogolne": sorted(f for f, k in kategorie.items() if k in KATEGORIE_ZOSTAW),
             "sporne": sorted(f for f, k in kategorie.items() if k.startswith("SPORNE:"))}
+
+
+KAT_ORYGINALOW = ("IMIE", "NAZWISKO", "MIEJSCE", "ULICA", "FIRMA", "NAZWA")
+
+
+def kontrola_wycieku(sesja: Sesja, wyjscie: str) -> dict:
+    """Bezpiecznik po podmianie, bez modelu. (1) Każdy oryginał z mapy sesji (klucze i formy zaobserwowane we wszystkich
+    dokumentach sesji) szukany dosłownie w tekście wynikowym. (2) Ponowna detekcja numerów regexami: numer, który nie
+    jest surogatem ani odwołaniem chronionym (artykuł, publikator, numer aktu), nie został podmieniony.
+    Trafienie oznacza status „do_przegladu”: błąd propagacji albo detekcji, niezależnie od tego, który detektor zawiódł."""
+    from ..detekcja import regexy
+    from ..detekcja.scal import RX_CHRONIONE, numery_aktow
+
+    oryginaly: dict[str, str] = {}
+    for (kat, klucz), _ in sesja.mapa.items():
+        if kat in KAT_ORYGINALOW:
+            oryginaly.setdefault(klucz, kat)
+    for (kat, _, _), forma in sesja.formy.items():
+        if kat in KAT_ORYGINALOW:
+            oryginaly.setdefault(forma, kat)
+        elif kat in ("ODWR", "ODWR_N"):
+            oryginaly.setdefault(forma, "NUMER")
+    warianty = {}
+    for o, kat in oryginaly.items():
+        if len(re.sub(r"\W", "", o)) < 3:
+            continue
+        warianty.setdefault(o, kat)
+        if len(o) >= 4 and o.upper() != o:
+            warianty.setdefault(o.upper(), kat)   # nazwisko pisane wersalikami: „KOWALSKI”
+    trafienia = []
+    if warianty:
+        rx = re.compile(r"(?<![\p{L}\d])(?:" + "|".join(re.escape(o) for o in sorted(warianty, key=len, reverse=True)) + r")(?![\p{L}\d])")
+        for m in rx.finditer(wyjscie):
+            trafienia.append({"start": m.start(), "end": m.end(), "tekst": m.group(), "rodzaj": "oryginał z mapy sesji",
+                              "kat": warianty[m.group()]})
+
+    chronione = [(m.start(), m.end()) for m in RX_CHRONIONE.finditer(wyjscie)] + numery_aktow(wyjscie)
+    surogaty = ({s for (kat, _), (s, _) in sesja.mapa.items() if kat in ("NUMER", "NRDOM")}
+                | {k for (kat, k, _) in sesja.formy if kat in ("ODWR", "ODWR_N")})
+    for e in regexy.wykryj(wyjscie):
+        if e.typ == "ADRES" or any(e.start < b and e.end > a for a, b in chronione):
+            continue   # adres sprawdza wyszukiwanie ulic i miejscowości z mapy
+        if e.tekst in surogaty or numery._klucz(e.typ, e.tekst) in surogaty:
+            continue
+        if any(t["start"] < e.end and t["end"] > e.start for t in trafienia):
+            continue
+        trafienia.append({"start": e.start, "end": e.end, "tekst": e.tekst, "rodzaj": "numer bez podmiany", "kat": e.typ})
+    trafienia.sort(key=lambda t: t["start"])
+    return {"status": "do_przegladu" if trafienia else "ok", "trafienia": trafienia}
 
 
 def deanonimizuj(sesja: Sesja, tekst: str) -> dict:

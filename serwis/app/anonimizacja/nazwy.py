@@ -40,10 +40,14 @@ def podmien_wlasne(sesja: Sesja, rdzen: str, tekst: str, start: int, ctx) -> str
         if osoby._nazw_i(w) and k > 0 and rodzaj(k - 1) == "osoba" and rdzen[slowa[k - 1].end():slowa[k].start()] in (" ", "-"):
             return "osoba"
         klasa = morf.rodzaj_slowa(w)
-        geo = any("nazwa_geograficzna" in x.nazwy for cz in re.split(r"[-–]", w) for x in morf.analizuj_ocr(cz))
+        geo_lematy = {x.lemat for cz in re.split(r"[-–]", w) for x in morf.analizuj_ocr(cz) if "nazwa_geograficzna" in x.nazwy}
+        geo = bool(geo_lematy)
         po_przyimku = bool(re.search(r"(?:^|\s)(?:w|we|dla|przy|z|ze)\s+$", rdzen[:slowa[k].start()]))
         ciag_dalszy = k > 0 and rdzen[slowa[k - 1].end():slowa[k].start()] in (" ", "-") and rodzaj(k - 1) == "miejsce"
-        if geo and (klasa == "wlasne" or po_przyimku or ciag_dalszy):
+        # Miejscowość podmieniona już w sesji jest podmieniana wszędzie, także bez przyimka i gdy jest też zwykłym
+        # słowem: „Sąd Rejonowy Poznań – Nowe Miasto” po „w Poznaniu”
+        znana = any(sesja.wez("MIEJSCE", l) for l in geo_lematy)
+        if geo and (klasa == "wlasne" or po_przyimku or ciag_dalszy or znana):
             return "miejsce"
         return "obce" if klasa == "ign" else None
 

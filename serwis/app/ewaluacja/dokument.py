@@ -71,6 +71,9 @@ def main() -> None:
     for faza, v in czasy.items():
         print(f"  {faza}: {v['s']} (zapytane {v['zapytane']}, z pamięci {v['z_pamieci']})" if isinstance(v, dict) else f"  {faza}: {v}")
     print("podmian", len(wynik["podmiany"]), dict(collections.Counter(p["typ"] for p in wynik["podmiany"])))
+    # Bez treści trafień: to oryginały. Pozycje i treść są w raport.json (pole kontrola) obok PDF.
+    k = wynik["kontrola"]
+    print("kontrola wycieku:", k["status"], dict(collections.Counter(f"{t['rodzaj']}/{t['kat']}" for t in k["trafienia"])))
     print("różnic po obiegu:", len(roznice), "; niepewnych:", len(powrot["niepewne"]))
     print("odrzucone jako ogólne (ocena LLM):", wynik["odrzucone_jako_ogolne"])
     print("=" * 30)

@@ -59,11 +59,12 @@ def main() -> None:
         return len(re.findall(r"(?<![\p{L}\d])" + re.escape(fragment) + r"(?![\p{L}\d])", gdzie))
 
     linie = ["# Etap 2: pełny obieg\n",
-             "| dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | sesje z błędem |",
-             "|---|---|---|---|---|---|---|"]
-    szczegoly, suma = [], [0, 0, 0, 0, 0, 0]
+             "| dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | wycieki złapane przez kontrolę "
+             "| fałszywe alarmy kontroli | sesje z błędem |",
+             "|---|---|---|---|---|---|---|---|---|"]
+    szczegoly, suma = [], [0] * 8
     for dok, (tekst, wzorce) in dokumenty.items():
-        licz = [0, 0, 0, 0, 0, 0]
+        licz = [0] * 8
         bledy: dict[str, list[int]] = {}   # opis błędu -> numery sesji, w których wystąpił
         for nr in range(args.sesje):
             sesja = Sesja(sciezka=":memory:", nowe_id=f"wzorzec-{nr}")
@@ -79,10 +80,25 @@ def main() -> None:
             roznice = _roznice(tekst, powrot["tekst"])
             # „Zepsute”: fragment, który miał zostać, występuje w tekście zanonimizowanym rzadziej niż w oryginale
             zepsute = sorted({z.tekst for z in zostaw[dok] if ile(z.tekst, anon) < ile(z.tekst, tekst)})
-            for i, v in enumerate((len(wynik["podmiany"]), len(wycieki), len(zepsute), len(roznice), len(powrot["niepewne"]))):
+            # Kontrola wycieku: które wycieki złapała i ile alarmów nie dotyczy żadnej encji wzorcowej
+            trafienia = wynik["kontrola"]["trafienia"]
+            miejsca_wzorcow = [(m.start(), m.end()) for w in wzorce if len(w.tekst) >= 3
+                               for m in re.finditer(r"(?<![\p{L}\d])" + re.escape(w.tekst) + r"(?![\p{L}\d])", anon)]
+
+            def zachodzi(a: int, b: int, miejsca) -> bool:
+                return any(a < y and b > x for x, y in miejsca)
+
+            pozycje_trafien = [(t["start"], t["end"]) for t in trafienia]
+            zlapane = [w for w in wycieki if any(zachodzi(m.start(), m.end(), pozycje_trafien)
+                                                 for m in re.finditer(r"(?<![\p{L}\d])" + re.escape(w) + r"(?![\p{L}\d])", anon))]
+            falszywe = [t for t in trafienia if not zachodzi(t["start"], t["end"], miejsca_wzorcow)]
+            for i, v in enumerate((len(wynik["podmiany"]), len(wycieki), len(zepsute), len(roznice), len(powrot["niepewne"]),
+                                   len(zlapane), len(falszywe))):
                 licz[i] += v
-            licz[5] += bool(wycieki or zepsute or roznice)
-            for opis in [f"WYCIEK: „{w}”" for w in wycieki] + [f"ZEPSUTE: „{z}”" for z in zepsute] + [f"RÓŻNICA: {r}" for r in roznice]:
+            licz[7] += bool(wycieki or zepsute or roznice)
+            for opis in ([f"WYCIEK: „{w}”{' (złapany przez kontrolę)' if w in zlapane else ''}" for w in wycieki]
+                         + [f"ZEPSUTE: „{z}”" for z in zepsute] + [f"RÓŻNICA: {r}" for r in roznice]
+                         + [f"FAŁSZYWY ALARM KONTROLI: {t['rodzaj']} {t['kat']} „{t['tekst']}”" for t in falszywe]):
                 bledy.setdefault(opis, []).append(nr)
             if nr == 0:
                 # Szczegóły, które nie są błędami, z pierwszej sesji
