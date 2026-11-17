@@ -50,6 +50,10 @@ Kolejność według wartości. Każdy punkt dostaje test z danymi fikcyjnymi w `
 4.6. Zestaw wzorcowy plikowy: skrypt generuje DOCX i PDF z siedmiu wzorców. Dodatkowe przypadki: tabela, nagłówek i stopka, nazwa rozbita na runy, nazwa przełamana między wierszami, metadane z nazwiskiem autora.
 4.7. Baza i API: tabele `dokument`, `zadanie`, `audyt` w `sesja.py`. Endpointy `POST /sesje/{id}/dokumenty`, `GET /zadania/{id}`, pobranie pliku i raportu. Kolejka: jeden wątek roboczy, jedno zadanie naraz, stan w SQLite, wznowienie po restarcie kontenera.
 4.8. Gotowe, gdy: 0 wycieków w plikach wynikowych zestawu, pliki otwierają się poprawnie, metadane są puste, zadanie przerwane restartem kończy się po wznowieniu.
+4.9. XLSX i XML (zgłoszone 2026-11-17, po PDF i DOCX, ten sam model pośredni z 4.2). Adres fragmentu: XLSX arkusz i komórka, XML ścieżka elementu albo atrybutu. Kontekst dla detekcji: nagłówek kolumny (XLSX) i nazwa elementu (XML), bo pojedyncza komórka nie ma zdania wokół siebie; kolumna z nagłówkiem typu „Nazwisko” lub „PESEL” jest podmieniana w całości.
+4.9.1. XLSX (`openpyxl`): komórki tekstowe i liczbowe (PESEL i NIP zapisane jako liczba, bez zer wiodących), formuły zostają, wartości w pamięci podręcznej formuł czyszczone; także nazwy arkuszy, komentarze, nagłówki i stopki, ukryte arkusze i wiersze, listy walidacji, nazwy zdefiniowane, metadane. Tabele przestawne trzymają kopię danych źródłowych: usuwać pamięć podręczną albo odrzucać plik.
+4.9.2. XML (`lxml`): tekst elementów i wartości atrybutów, komentarze, CDATA, instrukcje przetwarzania; przestrzenie nazw i kolejność bez zmian, plik wynikowy zgodny z XSD, jeśli jest znany. Podpis elektroniczny (XAdES) traci ważność: usuwać i odnotować w raporcie.
+4.9.3. Do ustalenia z użytkownikiem przed 4.9: jakie rodzaje XML (JPK, e-faktura KSeF, eksport z systemu, inne), czy wynik ma być plikiem w tym samym formacie, czy tylko tekstem dla modelu, i czy w XLSX liczby (kwoty, daty) zostają jak w tekście.
 
 ## 5. Faza D: etap 4, n8n tryb A
 
