@@ -2,7 +2,7 @@ UMOWA O ŚWIADCZENIE USŁUG INFORMATYCZNYCH nr {{SYGNATURA|UI/2025/04/017}}
 
 zawarta w dniu 14 kwietnia 2025 r. w {{MIEJSCE|Poznaniu}} pomiędzy:
 
-{{FIRMA#nalesniki|Naleśniki Babci Zosi Sp. z o.o.}} z siedzibą w {{MIEJSCE|Poznaniu}} przy {{ADRES|ul. Garbary 64/2, 61-758 Poznań}}, wpisaną do rejestru przedsiębiorców Krajowego Rejestru Sądowego prowadzonego przez {{FIRMA|Sąd Rejonowy Poznań – Nowe Miasto i Wilda w Poznaniu}} pod numerem KRS {{KRS|@1}}, NIP: {{NIP|@1:d}}, REGON: {{REGON|@1}}, reprezentowaną przez {{OSOBA|Zofię Wilk}}, Prezesa Zarządu, zwaną dalej „Zamawiającym”,
+{{FIRMA#nalesniki|Naleśniki Babci Zosi Sp. z o.o.}} z siedzibą w {{MIEJSCE|Poznaniu}} przy {{ADRES|ul. Garbary 64/2, 61-758 Poznań}}, wpisaną do rejestru przedsiębiorców Krajowego Rejestru Sądowego prowadzonego przez {{ZOSTAW|Sąd Rejonowy}} {{MIEJSCE|Poznań}} – Nowe Miasto i {{MIEJSCE|Wilda}} w {{MIEJSCE|Poznaniu}} pod numerem KRS {{KRS|@1}}, NIP: {{NIP|@1:d}}, REGON: {{REGON|@1}}, reprezentowaną przez {{OSOBA|Zofię Wilk}}, Prezesa Zarządu, zwaną dalej „Zamawiającym”,
 
 a
 

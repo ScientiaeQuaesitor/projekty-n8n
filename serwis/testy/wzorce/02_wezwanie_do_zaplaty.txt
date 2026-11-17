@@ -19,7 +19,7 @@ Wskazuję, że w rozmowie telefonicznej z dnia 12 lutego 2025 r. zobowiązał si
 
 Wpłaty należy dokonać w terminie 7 dni od otrzymania niniejszego pisma na rachunek bankowy mojego mocodawcy: {{IBAN|@2:pl}}.
 
-W razie bezskutecznego upływu terminu sprawa zostanie skierowana na drogę postępowania sądowego przed {{FIRMA|Sądem Rejonowym w Gliwicach}}, co narazi Pana na dodatkowe koszty. Informuję również, że przeciwko Panu toczy się już postępowanie o sygn. akt {{SYGNATURA|V GC 512/24}} z powództwa {{FIRMA|Betoniarni Zabrzańskiej S.A.}}, a dane o zadłużeniu mogą zostać przekazane do Krajowego Rejestru Długów.
+W razie bezskutecznego upływu terminu sprawa zostanie skierowana na drogę postępowania sądowego przed {{ZOSTAW|Sądem Rejonowym}} w {{MIEJSCE|Gliwicach}}, co narazi Pana na dodatkowe koszty. Informuję również, że przeciwko Panu toczy się już postępowanie o sygn. akt {{SYGNATURA|V GC 512/24}} z powództwa {{FIRMA|Betoniarni Zabrzańskiej S.A.}}, a dane o zadłużeniu mogą zostać przekazane do Krajowego Rejestru Długów.
 
 Dla porządku podaję dane dłużnika ustalone na podstawie umowy: {{OSOBA|Krzysztof Jan Baran}}, PESEL {{PESEL|@1}}, legitymujący się dowodem osobistym {{DOWOD|@1}}, zamieszkały w {{MIEJSCE|Zabrzu}}.
 
