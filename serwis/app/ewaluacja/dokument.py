@@ -32,13 +32,20 @@ def main() -> None:
     p_tekst, p_encje = baza.with_suffix(".tekst.md"), baza.with_suffix(".encje.json")
     czasy: dict = {}
 
-    if args.od_nowa or not p_tekst.exists():
+    # Raport ekstrakcji (strony, jakość OCR, bez treści) zapisywany obok PDF, bo trafia do raportu HTML
+    p_info = baza.with_suffix(".ekstrakcja.json")
+    if args.od_nowa or not p_tekst.exists() or not p_info.exists():
         t0 = time.time()
-        tekst, info = ekstrakcja.tekst_z_pdf(pdf)
+        tekst_nowy, info = ekstrakcja.tekst_z_pdf(pdf)
         czasy["ekstrakcja"] = round(time.time() - t0, 1)
-        p_tekst.write_text(tekst, encoding="utf-8")
-        p_encje.unlink(missing_ok=True)
-        print("ekstrakcja:", info)
+        p_info.write_text(json.dumps(info, ensure_ascii=False, indent=1), encoding="utf-8")
+        if args.od_nowa or not p_tekst.exists() or p_tekst.read_text(encoding="utf-8") != tekst_nowy:
+            p_tekst.write_text(tekst_nowy, encoding="utf-8")
+            p_encje.unlink(missing_ok=True)
+            print("ekstrakcja: nowy tekst, detekcja od nowa")
+        else:
+            print("ekstrakcja: tekst bez zmian, detekcja z pliku")
+    info = json.loads(p_info.read_text(encoding="utf-8"))
     tekst = p_tekst.read_text(encoding="utf-8")
     print("jakość tekstu:", miary(tekst))
 
@@ -64,7 +71,7 @@ def main() -> None:
     czasy["deanonimizacja"] = round(time.time() - t0, 1)
     roznice = _roznice(tekst, powrot["tekst"])
     baza.with_suffix(".anon.md").write_text(wynik["tekst"], encoding="utf-8")
-    baza.with_suffix(".raport.html").write_text(raport.zbuduj(f"{pdf.name}: raport porównawczy", tekst, wynik), encoding="utf-8")
+    baza.with_suffix(".raport.html").write_text(raport.zbuduj(f"{pdf.name}: raport porównawczy", tekst, wynik, info.get("ocr")), encoding="utf-8")
     baza.with_suffix(".raport.json").write_text(json.dumps({**wynik, "roznice": roznice, "niepewne": powrot["niepewne"], "czasy": czasy},
                                                            ensure_ascii=False, indent=1), encoding="utf-8")
     print("czasy faz [s]:")
