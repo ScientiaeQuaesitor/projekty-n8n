@@ -36,6 +36,26 @@ def _roznice(a: str, b: str) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def _niespojne(tekst: str, wzorce, podmiany: list[dict]) -> list[str]:
+    """Grupy wzorców (znacznik {{TYP#grupa|…}}), których formy dostały różne surogaty. Surogat formy to pierwsze słowo
+    podmiany, którego nie ma w tekście oryginału; dwa surogaty są tym samym słowem, gdy mają wspólne co najmniej
+    4 pierwsze litery („Tarvon”, „Tarvonem”)."""
+    slowa_oryg = set(re.findall(r"\p{L}+", tekst.lower()))
+    grupy: dict[str, list[tuple[str, str]]] = {}
+    for w in wzorce:
+        if not w.grupa:
+            continue
+        p = next((p for p in podmiany if p["start"] < w.end and p["end"] > w.start), None)
+        nowe = [x for x in re.findall(r"\p{L}+", p["surogat"]) if x.lower() not in slowa_oryg] if p else []
+        if nowe:
+            grupy.setdefault(w.grupa, []).append((w.tekst, nowe[0].lower()))
+    out = []
+    for g, formy in grupy.items():
+        if any(a[1][:4] != b[1][:4] for a in formy for b in formy):
+            out.append(f"{g}: " + ", ".join(f"„{t}” -> {s}" for t, s in formy))
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--llm", default=llm.LLM_MODEL)
@@ -61,11 +81,11 @@ def main() -> None:
 
     linie = ["# Etap 2: pełny obieg\n",
              "| dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | wycieki złapane przez kontrolę "
-             "| fałszywe alarmy kontroli | sesje z błędem |",
-             "|---|---|---|---|---|---|---|---|---|"]
-    szczegoly, suma = [], [0] * 8
+             "| fałszywe alarmy kontroli | niespójne | sesje z błędem |",
+             "|---|---|---|---|---|---|---|---|---|---|"]
+    szczegoly, suma = [], [0] * 9
     for dok, (tekst, wzorce) in dokumenty.items():
-        licz = [0] * 8
+        licz = [0] * 9
         bledy: dict[str, list[int]] = {}   # opis błędu -> numery sesji, w których wystąpił
         for nr in range(args.sesje):
             sesja = Sesja(sciezka=":memory:", nowe_id=f"wzorzec-{nr}")
@@ -94,12 +114,14 @@ def main() -> None:
             zlapane = [w for w in wycieki if any(zachodzi(m.start(), m.end(), pozycje_trafien)
                                                  for m in re.finditer(r"(?<![\p{L}\d])" + re.escape(w) + r"(?![\p{L}\d])", anon))]
             falszywe = [t for t in trafienia if not zachodzi(t["start"], t["end"], miejsca_wzorcow)]
+            niespojne = _niespojne(tekst, wzorce, wynik["podmiany"])
             for i, v in enumerate((len(wynik["podmiany"]), len(wycieki), len(zepsute), len(roznice), len(powrot["niepewne"]),
-                                   len(zlapane), len(falszywe))):
+                                   len(zlapane), len(falszywe), len(niespojne))):
                 licz[i] += v
-            licz[7] += bool(wycieki or zepsute or roznice)
+            licz[8] += bool(wycieki or zepsute or roznice or niespojne)
             for opis in ([f"WYCIEK: „{w}”{' (złapany przez kontrolę)' if w in zlapane else ''}" for w in wycieki]
                          + [f"ZEPSUTE: „{z}”" for z in zepsute] + [f"RÓŻNICA: {r}" for r in roznice]
+                         + [f"NIESPÓJNE: {n}" for n in niespojne]
                          + [f"FAŁSZYWY ALARM KONTROLI: {t['rodzaj']} {t['kat']} „{t['tekst']}”" for t in falszywe]):
                 bledy.setdefault(opis, []).append(nr)
             if nr == 0:

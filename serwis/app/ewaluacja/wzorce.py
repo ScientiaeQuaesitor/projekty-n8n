@@ -1,6 +1,8 @@
 """Wczytywanie dokumentów wzorcowych. Format: zwykły tekst ze znacznikami {{TYP|wartość}}.
 Wartość zaczynająca się od @ to numer generowany z poprawną sumą kontrolną, np. {{PESEL|@1}},
-{{NIP|@2:d}} (z myślnikami), {{IBAN|@1:pl}} (z prefiksem PL), {{IBAN|@1:c}} (bez spacji), {{DOWOD|@1:c}}."""
+{{NIP|@2:d}} (z myślnikami), {{IBAN|@1:pl}} (z prefiksem PL), {{IBAN|@1:c}} (bez spacji), {{DOWOD|@1:c}}.
+Znacznik z grupą, np. {{FIRMA#orzel|PPH „Orzeł”}}: wszystkie formy z tą samą grupą w dokumencie to jeden byt, więc ich
+surogaty muszą być tym samym słowem (w dowolnej formie). Sprawdza to miara „niespójne” w obiegu."""
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,7 +11,7 @@ import regex as re
 from ..detekcja.typy import TYPY
 
 KATALOG = Path(__file__).resolve().parents[2] / "testy" / "wzorce"
-RX = re.compile(r"\{\{([A-Z_]+)\|(.*?)\}\}", re.S)
+RX = re.compile(r"\{\{([A-Z_]+)(?:#(\w+))?\|(.*?)\}\}", re.S)
 
 
 @dataclass(frozen=True)
@@ -18,6 +20,7 @@ class Wzorzec:
     end: int
     typ: str
     tekst: str
+    grupa: str = ""
 
 
 def _pesel(n: int) -> str:
@@ -90,12 +93,12 @@ def parsuj(zrodlo: str) -> tuple[str, list[Wzorzec]]:
         przed = zrodlo[pos:m.start()]
         tekst.append(przed)
         dlugosc += len(przed)
-        typ, wartosc = m.group(1), m.group(2)
+        typ, grupa, wartosc = m.group(1), m.group(2) or "", m.group(3)
         if typ not in TYPY and typ != "ZOSTAW":
             raise ValueError(f"Nieznany typ w znaczniku: {m.group(0)}")
         if wartosc.startswith("@"):
             wartosc = _generuj(typ, wartosc)
-        wzorce.append(Wzorzec(dlugosc, dlugosc + len(wartosc), typ, wartosc))
+        wzorce.append(Wzorzec(dlugosc, dlugosc + len(wartosc), typ, wartosc, grupa))
         tekst.append(wartosc)
         dlugosc += len(wartosc)
         pos = m.end()

@@ -11,11 +11,11 @@ NIP {{NIP|@3}}
 
 PRZEDSĄDOWE WEZWANIE DO ZAPŁATY
 
-Działając w imieniu mojego mocodawcy, spółki {{FIRMA|Stalmet Śląsk sp. z o.o. sp. k.}} z siedzibą w {{MIEJSCE|Gliwicach}} (pełnomocnictwo w załączeniu), wzywam Pana do zapłaty kwoty 47 318,22 zł wraz z odsetkami ustawowymi za opóźnienie w transakcjach handlowych.
+Działając w imieniu mojego mocodawcy, spółki {{FIRMA#stalmet|Stalmet Śląsk sp. z o.o. sp. k.}} z siedzibą w {{MIEJSCE|Gliwicach}} (pełnomocnictwo w załączeniu), wzywam Pana do zapłaty kwoty 47 318,22 zł wraz z odsetkami ustawowymi za opóźnienie w transakcjach handlowych.
 
-Na powyższą kwotę składają się należności z faktur VAT nr {{SYGNATURA|FV/2024/11/0452}} oraz nr {{SYGNATURA|FV/2024/12/0031}}, wystawionych przez {{FIRMA|Stalmet Śląsk}} za dostawę prętów zbrojeniowych na budowę przy {{ADRES|ul. Chorzowskiej 112 w Gliwicach}}. Odbiór towaru potwierdził Pana pracownik, {{OSOBA|Dariusz Wróbel}}, podpisując dokumenty WZ.
+Na powyższą kwotę składają się należności z faktur VAT nr {{SYGNATURA|FV/2024/11/0452}} oraz nr {{SYGNATURA|FV/2024/12/0031}}, wystawionych przez {{FIRMA#stalmet|Stalmet Śląsk}} za dostawę prętów zbrojeniowych na budowę przy {{ADRES|ul. Chorzowskiej 112 w Gliwicach}}. Odbiór towaru potwierdził Pana pracownik, {{OSOBA|Dariusz Wróbel}}, podpisując dokumenty WZ.
 
-Wskazuję, że w rozmowie telefonicznej z dnia 12 lutego 2025 r. zobowiązał się Pan wobec pani {{OSOBA|Ireny Stalmach}}, głównej księgowej {{FIRMA|Stalmetu}}, do spłaty zadłużenia do końca lutego. Zobowiązanie to nie zostało wykonane. Pani {{OSOBA|Stalmach}} dwukrotnie przypominała o płatności wiadomościami wysłanymi na adres {{EMAIL|biuro@baran-bud.example}}.
+Wskazuję, że w rozmowie telefonicznej z dnia 12 lutego 2025 r. zobowiązał się Pan wobec pani {{OSOBA|Ireny Stalmach}}, głównej księgowej {{FIRMA#stalmet|Stalmetu}}, do spłaty zadłużenia do końca lutego. Zobowiązanie to nie zostało wykonane. Pani {{OSOBA|Stalmach}} dwukrotnie przypominała o płatności wiadomościami wysłanymi na adres {{EMAIL|biuro@baran-bud.example}}.
 
 Wpłaty należy dokonać w terminie 7 dni od otrzymania niniejszego pisma na rachunek bankowy mojego mocodawcy: {{IBAN|@2:pl}}.
 

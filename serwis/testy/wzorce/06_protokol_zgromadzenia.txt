@@ -11,7 +11,7 @@ Zgromadzenie otworzył Prezes Zarządu {{OSOBA|Radosław Wilczyński}}, który s
 Lista obecności:
 1. {{OSOBA|Radosław Wilczyński}}, 60 udziałów, PESEL {{PESEL|@3}};
 2. {{OSOBA|Monika Wilczyńska-Adamiak}}, 25 udziałów, PESEL {{PESEL|@4}};
-3. {{FIRMA|Lubuski Fundusz Rozwoju Sp. z o.o.}}, 15 udziałów, reprezentowany przez pełnomocnika {{OSOBA|Jerzego Ostrowskiego}}.
+3. {{FIRMA#lfr|Lubuski Fundusz Rozwoju Sp. z o.o.}} (dalej: {{FIRMA#lfr|LFR}}), 15 udziałów, reprezentowany przez pełnomocnika {{OSOBA|Jerzego Ostrowskiego}}.
 
 Na Przewodniczącego Zgromadzenia wybrano jednogłośnie {{OSOBA|Monikę Wilczyńską-Adamiak}}, a na protokolanta {{OSOBA|Natalię Bąk}}.
 
@@ -21,7 +21,7 @@ Zgromadzenie Wspólników postanawia podwyższyć kapitał zakładowy z kwoty 10
 
 § 3. Uchwała nr 2/06/2025 w sprawie zgody na nabycie nieruchomości
 
-Zgromadzenie wyraża zgodę na nabycie przez Spółkę od państwa {{OSOBA|Teresy}} i {{OSOBA|Henryka Borkowskich}} nieruchomości rolnej o powierzchni 4,2 ha położonej w miejscowości {{MIEJSCE|Zabór}}, dla której {{FIRMA|Sąd Rejonowy w Zielonej Górze}} prowadzi księgę wieczystą nr {{SYGNATURA|ZG1E/00045871/3}}, za cenę nie wyższą niż 620 000 zł. Pełnomocnik {{FIRMA|Lubuskiego Funduszu Rozwoju}} głosował przeciw. {{OSOBA|Ostrowski}} zażądał zaprotokołowania sprzeciwu.
+Zgromadzenie wyraża zgodę na nabycie przez Spółkę od państwa {{OSOBA|Teresy}} i {{OSOBA|Henryka Borkowskich}} nieruchomości rolnej o powierzchni 4,2 ha położonej w miejscowości {{MIEJSCE|Zabór}}, dla której {{FIRMA|Sąd Rejonowy w Zielonej Górze}} prowadzi księgę wieczystą nr {{SYGNATURA|ZG1E/00045871/3}}, za cenę nie wyższą niż 620 000 zł. Pełnomocnik {{FIRMA#lfr|Lubuskiego Funduszu Rozwoju}} głosował przeciw. {{OSOBA|Ostrowski}} zażądał zaprotokołowania sprzeciwu.
 
 § 4. Uchwała nr 3/06/2025 w sprawie powołania prokurenta
 

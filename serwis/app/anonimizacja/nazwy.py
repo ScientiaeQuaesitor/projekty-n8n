@@ -13,6 +13,7 @@ RX_W = re.compile(r"[\p{L}\d]+(?:[-'’][\p{L}\d]+)*")
 RX_FORMA_KONIEC = re.compile(r"\s+" + FORMA_PRAWNA + r"\s*$")
 RX_FORMA_SRODEK = re.compile(r"\s+" + FORMA_PRAWNA + r"(?=[\s,;])")
 ODMIENNE = ("subst", "adj", "ppas", "pact", "ger")
+PRZYM = ("adj", "ppas", "pact")
 
 def podmien_wlasne(sesja: Sesja, rdzen: str, tekst: str, start: int, ctx) -> str | None:
     """Dla nazw, które jako całość mają zostać (instytucja publiczna, akt prawny, dokument, pojęcie): zwykłe słowa
@@ -189,18 +190,27 @@ def analizuj_nazwe(rdzen: str, ctx) -> dict | None:
     else:
         tro = set().union(*(i.trojki() for i in inter))
         czlony = [(slowa[0], inter)]
+        # Grupa to przymiotniki wokół co najwyżej jednego rzeczownika. Drugi rzeczownik nie wchodzi, nawet gdy jego forma
+        # przypadkiem się zgadza: w „Lubuskiego Funduszu Rozwoju” dopełniacz „Rozwoju” to przydawka, nie część grupy,
+        # inaczej klucz nazwy w dopełniaczu różniłby się od klucza w mianowniku i ta sama firma dostałaby dwa surogaty.
+        rzecz = not any(i.klasa in PRZYM for i in inter)
         for nast in slowa[1:3]:
             if rdzen[czlony[-1][0].end():nast.start()] != " ":
                 break
-            it = [i for i in _an(nast.group())[1] if i.klasa in ODMIENNE]
-            wsp = tro & (set().union(*(i.trojki() for i in it)) if it else set())
-            if not wsp:
+            it = [i for i in _an(nast.group())[1] if i.klasa in ODMIENNE and i.trojki() & tro]
+            if rzecz:
+                it = [i for i in it if i.klasa in PRZYM]
+            if not it:
                 break
-            tro = wsp
+            tro = tro & set().union(*(i.trojki() for i in it))
+            rzecz = rzecz or not any(i.klasa in PRZYM for i in it)
             czlony.append((nast, it))
         grupa = []
         for m, it in czlony:
             traf = [i for i in it if i.trojki() & tro]
+            if rzecz and len(czlony) > 1 and any(i.klasa in PRZYM for i in traf) and any(
+                    not any(j.klasa in PRZYM for j in it2) for _, it2 in czlony):
+                traf = [i for i in traf if i.klasa in PRZYM]   # jest rzeczownik jednoznaczny: pozostałe człony to przymiotniki
             wyb = sorted(traf, key=lambda i: (i.klasa != "subst", "nazwa_pospolita" not in i.nazwy, i.lemat))[0]
             grupa.append({"lemat": wyb.lemat, "klasa": "subst" if wyb.klasa in ("subst", "ger") else "adj",
                           "wzor": m.group(), "pre": _an(m.group())[0]})
@@ -209,6 +219,36 @@ def analizuj_nazwe(rdzen: str, ctx) -> dict | None:
     reszta = rdzen[koniec:]
     klucz = " ".join([(g["pre"] + g["lemat"]).lower() for g in grupa] + [x.lower() for x in RX_W.findall(reszta)])
     return {"klucz": klucz, "grupa": grupa, "tro": tro, "kand": kand, "reszta": reszta, "przed": rdzen[:slowa[0].start()]}
+
+
+def skrotowiec(w: str) -> bool:
+    """Słowo zapisane jak skrótowiec: co najmniej dwie wielkie litery, do sześciu liter, np. „PPH”, „TFI”, „TUiR”."""
+    return bool(re.fullmatch(r"\p{L}{2,6}", w)) and sum(c.isupper() for c in w) >= 2
+
+
+def poczatek_nazwy(krotka: list[str], dluga: list[str], skroty: set[str]) -> bool:
+    """Słowa krótkiej nazwy (klucz) odpowiadają początkowi długiej: to samo słowo albo skrótowiec, którego litery są
+    inicjałami kolejnych słów długiej nazwy (człony z łącznikiem liczą się osobno: „produkcyjno-handlowy” daje „ph”)."""
+    if not krotka:
+        return True
+    if not dluga:
+        return False
+    w = krotka[0]
+    if w == dluga[0] and poczatek_nazwy(krotka[1:], dluga[1:], skroty):
+        return True
+    if w in skroty:
+        litery, i = w, 0
+        for n, d in enumerate(dluga):
+            ini = "".join(c[:1] for c in d.split("-"))
+            if litery[i:i + len(ini)] == ini:
+                i += len(ini)
+            elif litery[i:i + 1] == ini[:1]:
+                i += 1
+            else:
+                return False
+            if i == len(litery):
+                return n >= 1 and poczatek_nazwy(krotka[1:], dluga[n + 1:], skroty)
+    return False
 
 
 def _liczba_rodzaj(tro: set, przyp: str) -> tuple[str, str]:
@@ -258,6 +298,12 @@ def nazwa(sesja: Sesja, pow: str, tekst: str, start: int, ctx, kat: str = "FIRMA
     an = ctx.analizy_zakresu(kat, rdzen)
     if an is None:
         return None
+    # Ta sama nazwa raz oceniona jako firma, raz jako produkt („Aptekarz” obok „Aptekarz Polski S.A.”) to jeden byt:
+    # dostaje kategorię, pod którą jest już znana w sesji albo w dokumencie, i ten sam surogat.
+    inny = {"FIRMA": "NAZWA", "NAZWA": "FIRMA"}[kat]
+    k = an["klucz"]
+    if not (sesja.wez(kat, k) or (kat, k) in ctx.aliasy) and (sesja.wez(inny, k) or (inny, k) in ctx.aliasy):
+        kat = inny
     przyp = gram.rozstrzygnij(an["kand"], tekst, start)
     baza, dane = _surogat(sesja, kat, an, przyp, ctx)
     sesja.zapamietaj_forme(kat, an["klucz"], przyp, rdzen)

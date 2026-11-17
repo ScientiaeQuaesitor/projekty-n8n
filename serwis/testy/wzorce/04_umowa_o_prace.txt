@@ -2,7 +2,7 @@ UMOWA O PRACĘ NA CZAS NIEOKREŚLONY
 
 zawarta w dniu 2 stycznia 2025 r. w {{MIEJSCE|Lublinie}} pomiędzy:
 
-{{FIRMA|Przedsiębiorstwem Produkcyjno-Handlowym „Orzeł” Spółka z ograniczoną odpowiedzialnością}} z siedzibą w {{MIEJSCE|Lublinie}}, {{ADRES|ul. Mełgiewska 30, 20-234 Lublin}}, NIP {{NIP|@4:d}}, REGON {{REGON|@2}}, reprezentowanym przez Dyrektora ds. Personalnych, panią {{OSOBA|Bożenę Górską}}, zwanym dalej „Pracodawcą”,
+{{FIRMA#orzel|Przedsiębiorstwem Produkcyjno-Handlowym „Orzeł” Spółka z ograniczoną odpowiedzialnością}} z siedzibą w {{MIEJSCE|Lublinie}}, {{ADRES|ul. Mełgiewska 30, 20-234 Lublin}}, NIP {{NIP|@4:d}}, REGON {{REGON|@2}}, reprezentowanym przez Dyrektora ds. Personalnych, panią {{OSOBA|Bożenę Górską}}, zwanym dalej „Pracodawcą”,
 
 a
 
@@ -38,4 +38,4 @@ W sprawach nieuregulowanych stosuje się przepisy Kodeksu pracy. Umowę sporząd
 Pracodawca: {{OSOBA|Bożena Górska}}
 Pracownik: {{OSOBA|Adam Szczepaniak}}
 
-Potwierdzam odbiór informacji o warunkach zatrudnienia oraz zapoznanie się z regulaminem pracy {{FIRMA|PPH „Orzeł”}}. {{OSOBA|A. Szczepaniak}}
+Potwierdzam odbiór informacji o warunkach zatrudnienia oraz zapoznanie się z regulaminem pracy {{FIRMA#orzel|PPH „Orzeł”}}. {{OSOBA|A. Szczepaniak}}

@@ -36,17 +36,20 @@ class Kontekst:
         for kat in ("FIRMA", "NAZWA"):
             for _, _, d in sesja.wpisy(kat):
                 self.ign.update(g["lemat"] for g in d.get("grupa", []) if g["klasa"] == "ign")
-        # Aliasy: nazwa skrócona jest przedrostkiem (po słowach) dokładnie jednej dłuższej nazwy
+        # Aliasy: nazwa skrócona odpowiada początkowi dokładnie jednej dłuższej nazwy. Słowo po słowie albo skrótowcem,
+        # którego litery są inicjałami kolejnych członów: „PPH „Orzeł”” i „Przedsiębiorstwo Produkcyjno-Handlowe „Orzeł””.
         klucze: dict[str, set[str]] = {"FIRMA": {k for k, _, _ in sesja.wpisy("FIRMA")}, "NAZWA": {k for k, _, _ in sesja.wpisy("NAZWA")}}
+        skroty: dict[str, set[str]] = {}
         for kat, rdzen in rdzenie:
             an = self.analizy_zakresu(kat, rdzen)
             if an:
                 klucze[kat].add(an["klucz"])
+                skroty.setdefault(an["klucz"], set()).update(w.lower() for w in nazwy.RX_W.findall(rdzen) if nazwy.skrotowiec(w))
                 self.analizy.setdefault((kat, an["klucz"]), (an, next((p for p in ("nom", "gen", "acc", "inst", "loc", "dat") if p in an["kand"]), "nom")))
         for kat, zbior in klucze.items():
             for k in zbior:
                 kt = k.split(" ")
-                dluzsze = {k2 for k2 in zbior if len(k2.split(" ")) > len(kt) and k2.split(" ")[:len(kt)] == kt}
+                dluzsze = {k2 for k2 in zbior if len(k2.split(" ")) > len(kt) and nazwy.poczatek_nazwy(kt, k2.split(" "), skroty.get(k, set()))}
                 if len(dluzsze) == 1 and (kat, next(iter(dluzsze))) in self.analizy | {(kat, x): None for x, _, _ in sesja.wpisy(kat)}:
                     dlugi = next(iter(dluzsze))
                     if (kat, dlugi) in self.analizy or sesja.wez(kat, dlugi):

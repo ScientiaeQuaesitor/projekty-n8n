@@ -1,17 +1,17 @@
 # Etap 2: pełny obieg
 
-Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 92 s (klasyfikacja: lista 0 s / 74 nazw, uzasadnienie 0 s / 74 nazw, pojedynczo 0 s / 51 nazw).
+Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 83 s (klasyfikacja: lista 0 s / 75 nazw, uzasadnienie 0 s / 75 nazw, pojedynczo 0 s / 51 nazw).
 
-| dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | wycieki złapane przez kontrolę | fałszywe alarmy kontroli | sesje z błędem |
-|---|---|---|---|---|---|---|---|---|
-| 01_umowa_uslugi | 40 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 02_wezwanie_do_zaplaty | 32 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 03_notatka_spotkanie | 44 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 04_umowa_o_prace | 31 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 05_korespondencja_email | 36 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 06_protokol_zgromadzenia | 38 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 07_akt_notarialny | 48 | 0 | 200 | 0 | 0 | 0 | 0 | 200 |
-| **razem** | 269 | 0 | 200 | 0 | 0 | 0 | 0 | 200 |
+| dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | wycieki złapane przez kontrolę | fałszywe alarmy kontroli | niespójne | sesje z błędem |
+|---|---|---|---|---|---|---|---|---|---|
+| 01_umowa_uslugi | 40 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 02_wezwanie_do_zaplaty | 32 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 03_notatka_spotkanie | 44 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 04_umowa_o_prace | 31 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 05_korespondencja_email | 36 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 06_protokol_zgromadzenia | 39 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 07_akt_notarialny | 48 | 0 | 200 | 0 | 0 | 0 | 0 | 0 | 200 |
+| **razem** | 270 | 0 | 200 | 0 | 0 | 0 | 0 | 0 | 200 |
 
 ## 01_umowa_uslugi
 
