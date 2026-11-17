@@ -260,7 +260,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
         elif z.typ == "ADRES":
             nowe = adresy.podmien(sesja, z.tekst, tekst, z.start, ctx)
         else:
-            nowe = numery.podmien(sesja, z.typ if z.typ in NUMEROWE else "INNE", z.tekst)
+            nowe = numery.podmien(sesja, z.typ if z.typ in NUMEROWE else "INNE", z.tekst, ctx)
         if nowe is None or nowe == z.tekst:
             pominiete.append(z.jako_dict())
             continue

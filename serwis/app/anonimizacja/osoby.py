@@ -159,6 +159,23 @@ def _zajete(ctx, formy) -> bool:
     return any(f.lower() in ctx.slowa for f in formy)
 
 
+def _litery_innych(sesja: Sesja, nazwiska: set[str], litera: str) -> set[str]:
+    """Pierwsze litery surogatów imion i inicjałów innych osób o tym samym nazwisku, których oryginalny inicjał
+    jest inny niż litera. Inicjał przed nazwiskiem („A. Kowalska”) wraca po literze surogatu, więc dwie osoby
+    o jednym nazwisku nie mogą dostać surogatów zaczynających się tą samą literą."""
+    out = set()
+    for k, _, _ in sesja.wpisy("PARA"):
+        im, nz = k.split("|")
+        wpis = sesja.wez("IMIE", im)
+        if nz in nazwiska and im[:1] != litera and wpis:
+            out.add(wpis[0][:1])
+    for k, s, _ in sesja.wpisy("INICJAL"):
+        lit, nz = k.split("|")
+        if nz in nazwiska and lit != litera:
+            out.add(s)
+    return out
+
+
 def surogat_imienia(sesja: Sesja, lemat: str, plec: str, ctx) -> str:
     wpis = sesja.wez("IMIE", lemat)
     if wpis:
@@ -173,9 +190,12 @@ def surogat_imienia(sesja: Sesja, lemat: str, plec: str, ctx) -> str:
         bez_pary = [(x, x) for x in (pule.IMIONA_F_BEZ_PARY if plec == "f" else pule.IMIONA_M_BEZ_PARY)]
         uzyte = {tuple(s.split("|")) for s in sesja.uzyte("IMIEPARA")}
         oryginaly = {k for k, _, _ in sesja.wpisy("IMIE")}
+        nazwiska = {k.split("|")[1] for k, _, _ in sesja.wpisy("PARA") if k.split("|")[0] in (lemat, baza)}
+        litery = _litery_innych(sesja, nazwiska, lemat[:1]) if nazwiska else set()
 
         def zakazane(p) -> bool:
-            return p[0] in oryginaly or p[1] in oryginaly or _zajete(ctx, list(pule.formy_imienia(p[0]).values()) + list(pule.formy_imienia(p[1]).values()))
+            return (p[0] in oryginaly or p[1] in oryginaly or p[0][:1] in litery or p[1][:1] in litery
+                    or _zajete(ctx, list(pule.formy_imienia(p[0]).values()) + list(pule.formy_imienia(p[1]).values())))
 
         kolejne = (pary, bez_pary) if baza in pule.ZDROBNIENIA else (bez_pary, pary)
         wolne = [p for pula in kolejne for p in pula if p not in uzyte and not zakazane(p)]
@@ -233,7 +253,13 @@ def podmien(sesja: Sesja, pow: str, tekst: str, start: int, ctx) -> str | None:
                 forma = surogat_imienia(sesja, imiona[0], plec, ctx)[0]
             else:
                 wpis = sesja.wez("INICJAL", f"{w}|{nazw}")
-                forma = wpis[0] if wpis else sesja.ustaw("INICJAL", f"{w}|{nazw}", chr(sesja.losowe("INICJAL", w, nazw).randint(65, 90)))
+                if wpis:
+                    forma = wpis[0]
+                else:
+                    zajete = _litery_innych(sesja, {nazw}, w)
+                    rng = sesja.losowe("INICJAL", w, nazw)
+                    litery = [chr(c) for c in range(65, 91) if chr(c) not in zajete] or [chr(c) for c in range(65, 91)]
+                    forma = sesja.ustaw("INICJAL", f"{w}|{nazw}", rng.choice(litery))
         out.append(gram.jak_wzor(w, forma))
         pos = s["b"]
     out.append(pow[pos:])
@@ -329,16 +355,16 @@ def odtworz(sesja: Sesja, grupa: list[dict], tekst: str) -> list[tuple[int, int,
     if m and all(e[0] == "NAZWISKO" for e in pierwszy["wpisy"]):
         sur = pierwszy["wpisy"][0][1]
         klucz = next(k for k, s, _ in sesja.wpisy("NAZWISKO") if s == sur)
-        litera = None
+        kandydaci = set()
         for k, _, _ in sesja.wpisy("PARA"):
             im, nz = k.split("|")
             wpis = sesja.wez("IMIE", im)
             if nz == klucz and wpis and wpis[0][0] == m.group(1):
-                litera = im[0]
-        for k, s, _ in sesja.wpisy("INICJAL"):
-            if k.split("|")[1] == klucz and s == m.group(1):
-                litera = litera or k.split("|")[0]
-        if litera:
+                kandydaci.add(im[0])
+        if not kandydaci:
+            kandydaci = {k.split("|")[0] for k, s, _ in sesja.wpisy("INICJAL") if k.split("|")[1] == klucz and s == m.group(1)}
+        if kandydaci:
             a = start - len(m.group(0))
-            out.append((a, a + 1, litera, False))
+            # Kilka osób o tym nazwisku z tą samą literą surogatu: wybór niepewny, do przejrzenia
+            out.append((a, a + 1, sorted(kandydaci)[0], len(kandydaci) > 1))
     return out

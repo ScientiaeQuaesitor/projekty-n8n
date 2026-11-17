@@ -27,10 +27,11 @@ def _polacz(sciezka) -> sqlite3.Connection:
 class Sesja:
     """kat: IMIE, NAZWISKO, PARA, INICJAL, MIEJSCE, FIRMA, NAZWA, ULICA, NRDOM, KOD, NUMER."""
 
-    def __init__(self, id: str | None = None, nazwa: str = "", sciezka=None):
+    def __init__(self, id: str | None = None, nazwa: str = "", sciezka=None, nowe_id: str | None = None):
+        """id: wczytanie istniejącej sesji. nowe_id: nowa sesja o ustalonym id (pomiary powtarzalne), domyślnie losowe."""
         self.conn = _polacz(sciezka or DB_PATH)
         if id is None:
-            id = uuid.uuid4().hex[:12]
+            id = nowe_id or uuid.uuid4().hex[:12]
             self.conn.execute("INSERT INTO sesja (id, nazwa) VALUES (?, ?)", (id, nazwa))
         elif not self.conn.execute("SELECT 1 FROM sesja WHERE id = ?", (id,)).fetchone():
             raise KeyError(f"Nie ma sesji {id}")

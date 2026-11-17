@@ -16,7 +16,15 @@ def _klucz(typ: str, pow: str) -> str:
     return re.sub(r"[^\p{L}\d]", "", pow).upper()
 
 
-def _falszywka(sesja: Sesja, typ: str, klucz: str) -> str | None:
+def zajety(sesja: Sesja, ctx, surogat: str) -> bool:
+    """Surogat numeru nie może wystąpić jako osobny ciąg w tekście oryginału ani powtórzyć surogatu wydanego już
+    w sesji (także numeru domu). Deanonimizacja szuka surogatów dosłownie, więc kolizja oddałaby zły oryginał."""
+    if ctx is not None and re.search(r"(?<![\p{L}\d])" + re.escape(surogat.lower()) + r"(?![\p{L}\d])", ctx.tekst_l):
+        return True
+    return surogat in sesja.uzyte("NRDOM") or ("ODWR", surogat, "") in sesja.formy or ("ODWR_N", surogat, "") in sesja.formy
+
+
+def _falszywka(sesja: Sesja, typ: str, klucz: str, zakazane=lambda f: False) -> str | None:
     if typ == "EMAIL":
         n = sum(1 for k, _, _ in sesja.wpisy("NUMER") if k.startswith("EMAIL|")) + 1
         return f"adres{n}@poczta{n}.example"
@@ -32,7 +40,7 @@ def _falszywka(sesja: Sesja, typ: str, klucz: str) -> str | None:
             else:
                 out.append(chr(rng.randint(65, 90)) if typ == "DOWOD" else c)
         wynik = "".join(out)
-        if wynik != klucz and not (typ in KONTROLA and KONTROLA[typ](wynik)):
+        if wynik != klucz and not (typ in KONTROLA and KONTROLA[typ](wynik)) and not zakazane(wynik):
             return wynik
     return None
 
@@ -49,13 +57,18 @@ def _na_maske(pow: str, znaki: str, tylko_cyfry: bool) -> str:
     return "".join(out)
 
 
-def podmien(sesja: Sesja, typ: str, pow: str) -> str | None:
+def podmien(sesja: Sesja, typ: str, pow: str, ctx=None) -> str | None:
     klucz = _klucz(typ, pow)
     wpis = sesja.wez("NUMER", f"{typ}|{klucz}")
     if wpis:
         falsz = wpis[0]
     else:
-        falsz = _falszywka(sesja, typ, klucz)
+        tylko_cyfry = typ in CYFROWE
+
+        def zakazane(f: str) -> bool:
+            return zajety(sesja, ctx, f) or (typ != "EMAIL" and zajety(sesja, ctx, _na_maske(pow, f, tylko_cyfry)))
+
+        falsz = _falszywka(sesja, typ, klucz, zakazane)
         if falsz is None:
             return None
         sesja.ustaw("NUMER", f"{typ}|{klucz}", falsz, {"typ": typ})

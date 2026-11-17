@@ -1,17 +1,17 @@
 # Etap 2: pełny obieg
 
-Klasyfikator kategorii: gemma4:e4b. Czas przebiegu: 0 s (klasyfikacja: lista 0 s, uzasadnienie 0 s, pojedynczo 0 s).
+Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 69 s (klasyfikacja: lista 0 s, uzasadnienie 0 s, pojedynczo 0 s).
 
-| dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne |
-|---|---|---|---|---|---|
-| 01_umowa_uslugi | 40 | 0 | 0 | 0 | 0 |
-| 02_wezwanie_do_zaplaty | 32 | 0 | 0 | 0 | 0 |
-| 03_notatka_spotkanie | 44 | 0 | 0 | 0 | 0 |
-| 04_umowa_o_prace | 31 | 0 | 0 | 0 | 0 |
-| 05_korespondencja_email | 36 | 0 | 0 | 0 | 0 |
-| 06_protokol_zgromadzenia | 38 | 0 | 0 | 0 | 0 |
-| 07_akt_notarialny | 40 | 0 | 0 | 0 | 0 |
-| **razem** | 261 | 0 | 0 | 0 | 0 |
+| dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | sesje z błędem |
+|---|---|---|---|---|---|---|
+| 01_umowa_uslugi | 40 | 0 | 0 | 0 | 0 | 0 |
+| 02_wezwanie_do_zaplaty | 32 | 0 | 0 | 0 | 0 | 0 |
+| 03_notatka_spotkanie | 44 | 0 | 0 | 0 | 0 | 0 |
+| 04_umowa_o_prace | 31 | 0 | 0 | 0 | 0 | 0 |
+| 05_korespondencja_email | 36 | 0 | 0 | 0 | 0 | 0 |
+| 06_protokol_zgromadzenia | 38 | 0 | 0 | 0 | 0 | 0 |
+| 07_akt_notarialny | 40 | 0 | 0 | 0 | 0 | 0 |
+| **razem** | 261 | 0 | 0 | 0 | 0 | 0 |
 
 ## 01_umowa_uslugi
 

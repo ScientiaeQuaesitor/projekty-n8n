@@ -35,12 +35,16 @@ def _ulica(sesja: Sesja, nazwa: str, tekst: str, start: int, ctx) -> tuple[str, 
     return klucz, sur
 
 
-def _numer(sesja: Sesja, klucz_ulicy: str, nr: str) -> str:
+def _numer(sesja: Sesja, klucz_ulicy: str, nr: str, ctx=None) -> str:
     wpis = sesja.wez("NRDOM", f"{klucz_ulicy}|{nr}")
     if wpis:
         return wpis[0]
     rng = sesja.losowe("NRDOM", klucz_ulicy, nr)
-    nowy = re.sub(r"\d+", lambda m: str(rng.randint(1, 9)) + "".join(str(rng.randint(0, 9)) for _ in m.group()[1:]), nr)
+    for _ in range(50):
+        nowy = re.sub(r"\d+", lambda m: str(rng.randint(1, 9)) + "".join(str(rng.randint(0, 9)) for _ in m.group()[1:]), nr)
+        # jak przy numerach: bez ciągu obecnego w tekście oryginału i bez powtórzenia innego surogatu sesji
+        if nowy != nr and not numery.zajety(sesja, ctx, nowy):
+            break
     if nowy == nr:
         nowy = re.sub(r"\d", lambda m: str((int(m.group()) + 3) % 9 + 1), nr, count=1)
     return sesja.ustaw("NRDOM", f"{klucz_ulicy}|{nr}", nowy)
@@ -52,7 +56,7 @@ def _ogon(sesja: Sesja, reszta: str, tekst: str, pos: int, ctx) -> str | None:
     m = RX_KOD.match(reszta)
     if m:
         miasto = nazwy.miejsce(sesja, m["miasto"], tekst, pos + m.start("miasto"), ctx, "nom")
-        return (m["s3"] or "") + numery.podmien(sesja, "KOD", m["kod"]) + m["s4"] + (miasto or m["miasto"])
+        return (m["s3"] or "") + numery.podmien(sesja, "KOD", m["kod"], ctx) + m["s4"] + (miasto or m["miasto"])
     m = RX_W.match(reszta)
     if m:
         miasto = nazwy.miejsce(sesja, m["miasto"], tekst, pos + m.start("miasto"), ctx, "loc")
@@ -66,7 +70,7 @@ def podmien(sesja: Sesja, pow: str, tekst: str, start: int, ctx) -> str | None:
         klucz, sur = _ulica(sesja, m["nazwa"], tekst, start, ctx)
         ogon = _ogon(sesja, m["reszta"], tekst, start + m.start("reszta"), ctx)
         if ogon is not None:
-            return m["pre"] + m["s1"] + sur + m["s2"] + _numer(sesja, klucz, m["nr"]) + ogon
+            return m["pre"] + m["s1"] + sur + m["s2"] + _numer(sesja, klucz, m["nr"], ctx) + ogon
     ogon = _ogon(sesja, pow, tekst, start, ctx)
     if ogon:
         return ogon
