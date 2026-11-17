@@ -137,14 +137,16 @@ def _pewna_osoba(fragment: str) -> bool:
             and any(morf.rodzaj_slowa(w) == "wlasne" for w in slowa))
 
 
-def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = None, model: str | None = None,
-                       encje: list[Encja] | None = None, zapisz_pamiec=None, czasy: dict | None = None) -> dict[str, str]:
-    """Kategoria każdej wykrytej nazwy. Bez klasyfikacji (zawsze podmiana) zostają: osoby pewne słownikowo, nazwiska
-    występujące w dokumencie obok imienia oraz firmy z formą prawną.
+def _budowa_opisowa(fragment: str) -> bool:
+    """Zaczyna się wyrazem pospolitym i nie ma formy prawnej: „Kancelaria Notarialna we Wrocławiu”, „Zdrowa Apteka”."""
+    pierwsze = re.match(r"\P{L}*(\p{L}+)", fragment)
+    return (bool(pierwsze) and morf.rodzaj_slowa(pierwsze.group(1)) == "pospolite"
+            and not nazwy.RX_FORMA_KONIEC.search(fragment) and not nazwy.RX_FORMA_SRODEK.search(fragment))
 
-    Klucz pamięci zaczyna się od odcisku promptu, wariantu i modelu, więc zmiana któregokolwiek nie używa starych ocen.
-    zapisz_pamiec(pamiec) jest wołane po każdej paczce zapytań. czasy dostają czas i liczbę zapytanych nazw na wariant."""
-    znane_nazwiska = [lem for z in zakresy if z.typ == "OSOBA" and _pewna_osoba(z.tekst) for lem in _sygnatura(z.tekst)]
+
+def kandydaci_klasyfikacji(tekst: str, zakresy: list[Zakres], encje: list[Encja] | None = None) -> tuple[dict, dict]:
+    """(kategorie ustalone bez modelu, nazwy do klasyfikacji z kontekstem). Bez klasyfikacji (zawsze podmiana) zostają:
+    osoby pewne słownikowo, nazwiska występujące w dokumencie obok imienia oraz firmy z formą prawną."""
     llm_syg = [_sygnatura(e.tekst) for e in (encje or []) if e.zrodlo == "llm"]
     z_gory: dict[str, str] = {}
     kandydaci: dict[str, str] = {}
@@ -166,11 +168,29 @@ def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = 
         if z.typ == "OSOBA" and any(osoby._imie_i(w) or osoby._nazw_i(w) for w in _slowa_osobowe(z.tekst)):
             continue   # zakres osobowy zawierający słowo znane słownikowi jako imię lub nazwisko jest podmieniany zawsze
         kandydaci[z.tekst] = tekst[max(0, z.start - 220):z.end + 160].replace("\n", " ")
+    return z_gory, kandydaci
+
+
+def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = None, model: str | None = None,
+                       encje: list[Encja] | None = None, zapisz_pamiec=None, czasy: dict | None = None) -> dict[str, str]:
+    """Kategoria każdej wykrytej nazwy (kandydaci_klasyfikacji, potem głosowanie wariantów pytania).
+
+    Klucz pamięci zaczyna się od odcisku promptu, wariantu i modelu, więc zmiana któregokolwiek nie używa starych ocen.
+    zapisz_pamiec(pamiec) jest wołane po każdej paczce zapytań. czasy dostają czas i liczbę zapytanych nazw na wariant."""
+    z_gory, kandydaci = kandydaci_klasyfikacji(tekst, zakresy, encje)
     pamiec = pamiec if pamiec is not None else {}
     glosy: dict[str, list[str]] = {f: [] for f in kandydaci}
-    for wariant in detekcja.llm.WARIANTY_KLASYFIKACJI:
+    warianty = list(detekcja.llm.WARIANTY_KLASYFIKACJI)
+    for nr, wariant in enumerate(warianty):
         odcisk = detekcja.llm.odcisk_klasyfikacji(wariant, model)
-        nowe = [(f, k) for f, k in kandydaci.items() if f"{odcisk}|{f}|{k}" not in pamiec]
+        pytane = kandydaci
+        if nr == 2:
+            # Głosowanie etapowe: trzeci, najdroższy wariant tylko gdy dwa pierwsze nie są zgodne (inna kategoria, także
+            # osoba wobec firmy, bo od niej zależy rodzaj surogatu) albo brak oceny. Zabezpieczenie: nazwa o budowie
+            # opisowej dostaje trzeci głos zawsze, bo przy zgodnej podmianie tylko on może dać podział głosów, przy
+            # którym zmienia się sam człon własny.
+            pytane = {f: k for f, k in kandydaci.items() if len(glosy[f]) < 2 or len(set(glosy[f])) > 1 or _budowa_opisowa(f)}
+        nowe = [(f, k) for f, k in pytane.items() if f"{odcisk}|{f}|{k}" not in pamiec]
         t0 = time.time()
         if nowe:
             def po_paczce(paczka, oceny, odcisk=odcisk):
@@ -180,8 +200,9 @@ def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = 
                     zapisz_pamiec(pamiec)
             detekcja.llm.klasyfikuj(nowe, model, wariant, po_paczce=po_paczce)
         if czasy is not None:
-            czasy[f"klasyfikacja_{wariant}"] = {"s": round(time.time() - t0, 1), "zapytane": len(nowe), "z_pamieci": len(kandydaci) - len(nowe)}
-        for f, k in kandydaci.items():
+            czasy[f"klasyfikacja_{wariant}"] = {"s": round(time.time() - t0, 1), "zapytane": len(nowe), "z_pamieci": len(pytane) - len(nowe),
+                                                "pominiete": len(kandydaci) - len(pytane)}
+        for f, k in pytane.items():
             if pamiec.get(f"{odcisk}|{f}|{k}"):
                 glosy[f].append(pamiec[f"{odcisk}|{f}|{k}"])
     wynik = dict(z_gory)
@@ -242,9 +263,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
             # Głosy podzielone. Jeśli nazwa ma budowę opisową (zaczyna się zwykłym słowem i zawiera człon własny), to
             # podmieniany jest tylko ten człon: „Kancelaria Notarialna we Wrocławiu”. W innym razie podmiana w całości.
             kategoria = kategoria.split(":", 1)[1]
-            pierwsze_slowo = re.match(r"\P{L}*(\p{L}+)", z.tekst)
-            if (pierwsze_slowo and morf.rodzaj_slowa(pierwsze_slowo.group(1)) == "pospolite"
-                    and not nazwy.RX_FORMA_KONIEC.search(z.tekst) and not nazwy.RX_FORMA_SRODEK.search(z.tekst)):
+            if _budowa_opisowa(z.tekst):
                 nowe = nazwy.podmien_wlasne(sesja, z.tekst, tekst, z.start, ctx)
                 if nowe and nowe != z.tekst:
                     out += [tekst[pos:z.start], nowe]

@@ -53,6 +53,7 @@ def main() -> None:
     pamiec = pamiec_plik.wczytaj(p_pamiec)
     zapisz_pamiec = pamiec_plik.zapisywacz(p_pamiec, args.klasyfikator)
     czasy_klasyfikacji = collections.Counter()
+    pytane_wariant = collections.Counter()   # ile nazw wymaga oceny danego wariantu (głosowanie etapowe)
     t_start = time.time()
 
     def ile(fragment: str, gdzie: str) -> int:
@@ -72,8 +73,9 @@ def main() -> None:
             wynik = silnik.anonimizuj(sesja, tekst, wykryte[dok], pamiec=pamiec, model_klasyfikacji=args.klasyfikator,
                                       zapisz_pamiec=zapisz_pamiec, czasy=czasy)
             for k, v in czasy.items():
-                if k.startswith("klasyfikacja_"):
+                if k.startswith("klasyfikacja_") and nr == 0:
                     czasy_klasyfikacji[k.removeprefix("klasyfikacja_")] += v["s"]
+                    pytane_wariant[k.removeprefix("klasyfikacja_")] += v["zapytane"] + v["z_pamieci"]
             anon = wynik["tekst"]
             wycieki = sorted({w.tekst for w in wzorce if len(w.tekst) >= 4 and ile(w.tekst, anon)})
             powrot = silnik.deanonimizuj(sesja, anon)
@@ -115,7 +117,7 @@ def main() -> None:
         szczegoly += pierwsza
     linie.append("| **razem** | " + " | ".join(map(str, suma)) + " |")
     zapisz_pamiec(pamiec)
-    czasy_txt = ", ".join(f"{w} {s:.0f} s" for w, s in czasy_klasyfikacji.items())
+    czasy_txt = ", ".join(f"{w} {s:.0f} s / {pytane_wariant[w]} nazw" for w, s in czasy_klasyfikacji.items())
     linie.insert(1, f"Klasyfikator kategorii: {args.klasyfikator}. Sesje na dokument: {args.sesje} (id wzorzec-0 …). "
                     f"Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. "
                     f"Czas przebiegu: {time.time() - t_start:.0f} s (klasyfikacja: {czasy_txt}).\n")

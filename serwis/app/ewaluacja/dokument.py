@@ -69,7 +69,8 @@ def main() -> None:
                                                            ensure_ascii=False, indent=1), encoding="utf-8")
     print("czasy faz [s]:")
     for faza, v in czasy.items():
-        print(f"  {faza}: {v['s']} (zapytane {v['zapytane']}, z pamięci {v['z_pamieci']})" if isinstance(v, dict) else f"  {faza}: {v}")
+        print(f"  {faza}: {v['s']} (zapytane {v['zapytane']}, z pamięci {v['z_pamieci']}, niepotrzebne {v.get('pominiete', 0)})"
+              if isinstance(v, dict) else f"  {faza}: {v}")
     print("podmian", len(wynik["podmiany"]), dict(collections.Counter(p["typ"] for p in wynik["podmiany"])))
     # Bez treści trafień: to oryginały. Pozycje i treść są w raport.json (pole kontrola) obok PDF.
     k = wynik["kontrola"]
