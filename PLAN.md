@@ -44,6 +44,8 @@ Kolejność według wartości. Każdy punkt dostaje test z danymi fikcyjnymi w `
 
 ## 4. Faza C: etap 3, pliki
 
+ZROBIONA 2026-11-17/18 (commit `7e36aab`, stan w `PRZEKAZANIE.md` 2.00.8), bez 4.9 (XLSX, XML: czeka na 4.9.3). Odstępstwa: kontrola pliku nie powtarza NER, tylko sprawdza zgodność tekstu pliku z tekstem zanonimizowanym (przy zgodności NER dałby to samo) i uruchamia bezpiecznik na całym pliku; skan przez API daje wynik tekstowy do czasu fazy E. Faza B: 3.4, 3.5, 3.6 zrobione, 3.7 rozwiązuje model pośredni (PDF: wiersze akapitu sklejone, przeniesienia rozwinięte), 3.8 i 3.9 czekają. Faza D: 5.1 zrobione (workflow `OCIPF5OMK3R0TbQq`), 5.2 było wcześniej, 5.3 i 5.4 czekają na decyzje użytkownika.
+
 4.1. Zależności: `PyMuPDF` i `python-docx` do `requirements.txt` (dziś ich nie ma), przebudowa obrazu.
 4.2. Model pośredni dokumentu: lista fragmentów z adresem w pliku (PDF: strona, prostokąt, czcionka; DOCX: akapit, run) oraz tekst ciągły z mapą pozycji. Detekcja i silnik pracują na tekście ciągłym, podmiana wraca pod adresy. Łamanie wiersza i przeniesienie wyrazu są rozwijane w tekście ciągłym.
 4.3. DOCX: podmiana w runach (zakres w kilku runach: tekst do pierwszego, reszta czyszczona), także nagłówki, stopki, tabele, przypisy, pola tekstowe. Czyszczenie: komentarze, śledzenie zmian, metadane (core, app, custom), obrazy.

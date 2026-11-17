@@ -184,6 +184,21 @@ Wymaganie: żadnych list pojęć w kodzie. Ogólne nazwy własne (ustawa, kodeks
 
 Pomiary: zestaw wzorcowy z głosowaniem i gemmą 261 podmian, 0 wycieków, 0 zepsutych, 0 różnic (356 s klasyfikacji od zera). `qwen3-vl:8b` w roli klasyfikatora: 7 wycieków, 2 zepsute, 564 s. Akt z głosowaniem nie został jeszcze zmierzony.
 
+### Etap 3 i początek etapu 4 (2026-11-17/18, praca samodzielna)
+
+Szczegóły: `PRZEKAZANIE.md` 2.00, commity `ce3e823` do `7e36aab`.
+
+1. Faza B (tekst): skrótowiec i formy jednej firmy z jednym surogatem (grupa odmienna z jednym rzeczownikiem, alias skrótowca, wspólna kategoria firma/produkt; nowa miara „niespójne” ze znacznikiem `{{TYP#grupa|…}}`), surogat w liczbie i rodzaju oryginału („Tarvony”, „Tarvono”), odmiana nazw spoza słownika z wymianami spółgłosek („Stalmecie”, test 19 nazw), sądy we wzorcach jako `ZOSTAW` z miejscowością.
+2. Model pośredni dokumentu: tekst ciągły z mapą każdego znaku do kawałka pliku (DOCX: element `w:t` lub kod pola; PDF: wiersz). Wiersze akapitu PDF sklejone, przeniesienia rozwinięte (dywiz jako znak ukryty), więc nazwa przełamana między wierszami jest jednym zakresem (zamyka PLAN 3.7 dla PDF cyfrowego). Podmiana nazwy, w której część słów zostaje, zmienia w pliku tylko różniące się słowa.
+3. DOCX: czyszczenie przed odczytem tekstu (zmiany śledzone przyjęte, komentarze, obrazy, osadzone obiekty, hiperłącza zewnętrzne, metadane, zmienne dokumentu, customXml), dzięki czemu detekcja widzi dokładnie to, co zostaje w pliku. PDF: redakcja wąskim pasem wokół linii bazowej, surogat w miejscu oryginału, nigdy poza nim (ściskanie, potem mniejsza czcionka), usunięte obrazy, adnotacje, łącza, formularze, załączniki, zakładki, XMP.
+4. Kontrola wycieku na pliku (7.10): zgodność tekstu pliku z tekstem zanonimizowanym, bezpiecznik na całym pliku, brak obrazów i załączników. Ponowny NER zastąpiony porównaniem tekstu (przy zgodności dałby ten sam wynik co detekcja na tekście). Kontrola wykryła w pierwszej wersji PDF nakładanie się dłuższego surogatu na następne słowo; po poprawce 0 różnic.
+5. Kolejka zadań w SQLite (dokument, zadanie, audyt bez treści), jeden wątek roboczy, wznowienie po restarcie; API z punktu 9 zrealizowane, plik „do przeglądu” nie jest wydawany (409).
+6. Workflow n8n „Anonimizuj dokument” (10.1.1) w instancji 5687.
+
+Wyniki: zestaw plikowy 7 DOCX + 7 PDF × 3 sesje: 0 wycieków, 0 alarmów kontroli, 0 różnic tekstu pliku, wszystkie pliki się otwierają; zepsute wyłącznie z niestabilności klasyfikacji. Zestaw tekstowy bez zmian (270 podmian, 0 wycieków, 1 zepsute, 0 różnic, 0 niespójnych). Czas zadania API dla fikcyjnego DOCX (4 strony tekstu): 72 s, w tym detekcja 33 s i klasyfikacja 39 s.
+
+Otwarte: zapis oryginału w danych wykonań n8n (PLAN 5.4), workflow błędów (5.3), test na prawdziwym DOCX lub PDF cyfrowym, odtworzenie dokumentu ze skanu (faza E), XLSX i XML (4.9).
+
 ### Domknięcie etapu 2 (2026-11-17)
 
 Szczegóły i historia zmian: `PRZEKAZANIE.md` 5.15 do 5.20 i 5.2, 5.3; repozytorium Git w katalogu projektu (od 2026-11-17).
