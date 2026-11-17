@@ -89,7 +89,8 @@ def znajdz(sesja: Sesja, tekst: str) -> list[tuple[int, int, str, bool]]:
     for e in regexy.wykryj(tekst):
         if any(a <= e.start and e.end <= b for a, b, _, _ in out):
             continue
-        for typ in {e.typ, "TELEFON", "NIP", "KRS", "REGON", "PESEL", "IBAN", "SYGNATURA"}:
+        # Kolejność stała (najpierw typ z detekcji): zbiór zmieniał kolejność między uruchomieniami
+        for typ in dict.fromkeys([e.typ, "TELEFON", "NIP", "KRS", "REGON", "PESEL", "IBAN", "SYGNATURA"]):
             oryg = sesja.forma("ODWR_N", _klucz(typ, e.tekst), "")
             if oryg:
                 out.append((e.start, e.end, oryg, True))

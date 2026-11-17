@@ -63,46 +63,6 @@ def _zapytaj(kawalek: str, model: str) -> list[dict]:
     return [e for e in encje if isinstance(e, dict)]
 
 
-PROMPT_WERYFIKACJA = """Dostajesz ponumerowane fragmenty polskiego dokumentu, każdy z kontekstem. Oceń każdy fragment:
-W: nazwa własna konkretnej osoby, firmy, instytucji, miejscowości, dzielnicy, ulicy, produktu albo projektu.
-O: określenie ogólne, czyli pojęcie prawne lub rola strony (Kupujący, Stawający, Strony), termin zdefiniowany w umowie (Lokal Mieszkalny, Nieruchomość Wspólna, Bank), nazwa ustawy, kodeksu, rozporządzenia lub uchwały wraz z jej opisem (Kodeks cywilny, ustawa o rewitalizacji, rozporządzenie o ochronie danych osobowych, „w sprawie ochrony osób fizycznych”), tytuł albo rodzaj dokumentu (Akt notarialny, Umowa sprzedaży), organ lub system państwowy wymieniony ogólnie (Parlament Europejski, Baza Danych Ksiąg Wieczystych, Krajowy Rejestr Sądowy), kategoria prawna (specjalna strefa ekonomiczna, obszar rewitalizacji), skrót redakcyjny, zwykłe słowo.
-W razie wątpliwości wybierz W. Oceń wszystkie fragmenty."""
-
-SCHEMAT_WERYFIKACJA = {
-    "type": "object",
-    "properties": {"oceny": {"type": "array", "items": {
-        "type": "object",
-        "properties": {"nr": {"type": "integer"}, "ocena": {"type": "string", "enum": ["W", "O"]}},
-        "required": ["nr", "ocena"],
-    }}},
-    "required": ["oceny"],
-}
-
-
-def zweryfikuj(fragmenty_z_kontekstem: list[tuple[str, str]], model: str | None = None) -> set[str]:
-    """Zwraca fragmenty ocenione jako określenia ogólne. Brak oceny oznacza pozostawienie fragmentu (ostrożnie)."""
-    import json
-    ogolne: set[str] = set()
-    for i in range(0, len(fragmenty_z_kontekstem), 25):
-        paczka = fragmenty_z_kontekstem[i:i + 25]
-        tresc = "\n".join(f"{n + 1}. „{f}” | kontekst: …{k}…" for n, (f, k) in enumerate(paczka))
-        r = httpx.post(f"{OLLAMA_URL}/api/chat", timeout=600, json={
-            "model": model or LLM_MODEL, "stream": False, "think": False, "format": SCHEMAT_WERYFIKACJA,
-            "options": {"temperature": 0, "num_ctx": 4096},
-            "messages": [{"role": "system", "content": PROMPT_WERYFIKACJA}, {"role": "user", "content": tresc}],
-        })
-        if r.status_code != 200:
-            raise BladLLM(f"Ollama {r.status_code}: {r.text[:300]}")
-        try:
-            oceny = json.loads(r.json()["message"]["content"])["oceny"]
-        except Exception as e:
-            raise BladLLM(f"Model nie zwrócił poprawnego JSON przy weryfikacji: {e}") from e
-        for o in oceny:
-            if isinstance(o, dict) and o.get("ocena") == "O" and isinstance(o.get("nr"), int) and 1 <= o["nr"] <= len(paczka):
-                ogolne.add(paczka[o["nr"] - 1][0])
-    return ogolne
-
-
 LLM_MODEL_KLASYFIKACJA = os.environ.get("LLM_MODEL_KLASYFIKACJA", LLM_MODEL)
 KATEGORIE = ["OSOBA", "FIRMA", "PRODUKT", "MIEJSCE", "INSTYTUCJA", "AKT_PRAWNY", "DOKUMENT", "POJECIE"]
 

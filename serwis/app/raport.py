@@ -32,7 +32,7 @@ def zbuduj(tytul: str, oryginal: str, wynik: dict) -> str:
     liczniki = Counter(p["typ"] for p in podmiany)
     unikalne = sorted({(p["typ"], p["oryginal"], p["surogat"]) for p in podmiany})
     wiersze = "".join(f"<tr><td>{html.escape(t)}</td><td>{html.escape(o)}</td><td>{html.escape(s)}</td></tr>" for t, o, s in unikalne)
-    odrz = ", ".join(html.escape(x) for x in wynik.get("odrzucone_jako_ogolne", [])) or "brak"
+    odrz = ", ".join(html.escape(f"{f} ({k})") for f, k in wynik.get("zostawione", {}).items()) or "brak"
     bez = ", ".join(html.escape(f'{p["typ"]}: {p["tekst"]}') for p in wynik.get("pominiete", [])) or "brak"
     legenda = "".join(f'<span style="background:{k}">{t}</span>' for t, k in KOLORY.items()) + '<span style="background:#ddd">numery</span>'
     return f"""<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>{html.escape(tytul)}</title><style>{STYL}</style></head><body>
@@ -41,6 +41,6 @@ def zbuduj(tytul: str, oryginal: str, wynik: dict) -> str:
 <p class="leg">{legenda}</p>
 <div class="kol"><div>{_zaznacz(oryginal, lewe)}</div><div>{_zaznacz(wynik["tekst"], prawe)}</div></div>
 <p><b>Wykryte, ale bez podmiany:</b> {bez}</p>
-<p><b>Odrzucone jako określenia ogólne (ocena LLM):</b> {odrz}</p>
+<p><b>Zostawione (kategoria):</b> {odrz}</p>
 <table><tr><th>typ</th><th>oryginał</th><th>surogat</th></tr>{wiersze}</table>
 </body></html>"""

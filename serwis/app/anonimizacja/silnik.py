@@ -77,28 +77,6 @@ def _same_pospolite(fragment: str) -> bool:
     return True
 
 
-def odsiej_ogolne(tekst: str, encje: list[Encja], pamiec: dict | None = None) -> tuple[list[Encja], list[str]]:
-    """Zakresy wskazane tylko przez NER i złożone ze zwykłych słów („Nieruchomość Wspólna”, „Akt notarialny”)
-    ocenia LLM. Odrzucane są wyłącznie te, które uzna za określenia ogólne."""
-    llm_teksty = {e.tekst.strip(" .,;:\"„”()") for e in encje if e.zrodlo == "llm"}
-    kandydaci: dict[str, str] = {}
-    for e in encje:
-        if e.zrodlo not in ("spacy", "hf"):
-            continue
-        f = e.tekst.strip(" .,;:\"„”()\n")
-        if f and "\n" not in f and f not in llm_teksty and f not in kandydaci and _same_pospolite(f):
-            kandydaci[f] = tekst[max(0, e.start - 60):e.end + 40].replace("\n", " ")
-    if not kandydaci:
-        return encje, []
-    pamiec = pamiec if pamiec is not None else {}
-    nowe = [(f, k) for f, k in kandydaci.items() if f not in pamiec]
-    if nowe:
-        ogolne = detekcja.llm.zweryfikuj(nowe)
-        pamiec.update({f: f in ogolne for f, _ in nowe})
-    odrzucone = {f for f in kandydaci if pamiec.get(f)}
-    return [e for e in encje if not (e.zrodlo in ("spacy", "hf") and e.tekst.strip(" .,;:\"„”()\n") in odrzucone)], sorted(odrzucone)
-
-
 def _sygnatura(fragment: str) -> list:
     return [_lematy(w) for w in re.findall(r"[\p{L}\d]+", fragment)]
 
@@ -212,7 +190,9 @@ def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = 
         # Nazwa zostaje tylko przy co najmniej dwóch głosach „zostaw”. Remis i brak ocen oznaczają podmianę.
         strona = zostaw if len(zostaw) >= 2 else podmien
         if strona:
-            wynik[f] = max(set(strona), key=strona.count)
+            # Remis kategorii rozstrzyga wcześniejszy wariant (lista, potem uzasadnienie). max po zbiorze zależał od
+            # kolejności haszy, czyli zmieniał wynik między uruchomieniami procesu.
+            wynik[f] = max(strona, key=lambda x: (strona.count(x), -strona.index(x)))
         if zostaw and len(zostaw) < 2:
             wynik[f] = "SPORNE:" + wynik.get(f, "FIRMA")   # głosy podzielone, większość za podmianą
     return wynik
@@ -317,7 +297,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
     kontrola = kontrola_wycieku(sesja, wyjscie)
     czasy["kontrola"] = round(time.time() - t0, 1)
     return {"tekst": wyjscie, "kontrola": kontrola, "podmiany": podmiany, "pominiete": pominiete, "kategorie": kategorie,
-            "odrzucone_jako_ogolne": sorted(f for f, k in kategorie.items() if k in KATEGORIE_ZOSTAW),
+            "zostawione": {f: k for f, k in sorted(kategorie.items()) if k in KATEGORIE_ZOSTAW},
             "sporne": sorted(f for f, k in kategorie.items() if k.startswith("SPORNE:"))}
 
 

@@ -15,7 +15,8 @@ services:
       - DOCLING_URL=http://docling:5001
       - OLLAMA_URL=http://host.docker.internal:11434
       - DATA_DIR=/data
-      - LLM_MODEL=gemma4:e4b
+      - LLM_MODEL=gemma4:e4b                # detekcja encji
+      - LLM_MODEL_KLASYFIKACJA=gemma4:e4b   # klasyfikacja kategorii nazw (głosowanie trzech wariantów pytania)
     volumes:
       - ./dane:/data
       # Kod i testy montowane z dysku: zmiana pliku nie wymaga przebudowy obrazu

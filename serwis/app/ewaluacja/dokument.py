@@ -76,7 +76,8 @@ def main() -> None:
     k = wynik["kontrola"]
     print("kontrola wycieku:", k["status"], dict(collections.Counter(f"{t['rodzaj']}/{t['kat']}" for t in k["trafienia"])))
     print("różnic po obiegu:", len(roznice), "; niepewnych:", len(powrot["niepewne"]))
-    print("odrzucone jako ogólne (ocena LLM):", wynik["odrzucone_jako_ogolne"])
+    # Same liczniki: na liście zostawionych mogłaby się znaleźć źle oceniona nazwa własna
+    print("zostawione (kategoria):", dict(collections.Counter(wynik["zostawione"].values())))
     print("=" * 30)
     print(wynik["tekst"][:args.pokaz])
 
