@@ -1,0 +1,610 @@
+[
+  {
+    "updatedAt": "2026-11-17T22:12:50.341Z",
+    "createdAt": "2026-11-17T22:03:04.271Z",
+    "id": "OCIPF5OMK3R0TbQq",
+    "name": "Anonimizacja v2 « Anonimizuj dokument",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c01",
+        "name": "Formularz",
+        "type": "n8n-nodes-base.formTrigger",
+        "typeVersion": 2.6,
+        "position": [
+          0,
+          0
+        ],
+        "webhookId": "8a7b6c5d-4e3f-4a2b-9c1d-0e1f2a3b4c5d",
+        "parameters": {
+          "formTitle": "Anonimizuj dokument",
+          "formDescription": "Plik DOCX albo PDF. Wynik: plik z danymi zastąpionymi surogatami i lokalny raport porównawczy. Puste pole sesji zakłada nową sesję; podaj istniejącą, jeśli dokument należy do tej samej sprawy (wspólna mapa surogatów).",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Plik (DOCX lub PDF)",
+                "fieldName": "plik",
+                "fieldType": "file",
+                "requiredField": true,
+                "multipleFiles": false,
+                "acceptFileTypes": ".pdf,.docx"
+              },
+              {
+                "fieldLabel": "Identyfikator sesji (opcjonalnie)",
+                "fieldName": "sesja",
+                "fieldType": "text",
+                "placeholder": "puste = nowa sesja"
+              }
+            ]
+          },
+          "options": {
+            "path": "anonimizuj-dokument",
+            "buttonLabel": "Anonimizuj",
+            "appendAttribution": false
+          }
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c02",
+        "name": "Wyślij do anonimizatora",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          260,
+          0
+        ],
+        "onError": "continueErrorOutput",
+        "notes": "Why HTTP: własny lokalny serwis anonimizator, nie ma dla niego węzła. Bez ponowień: drugie wysłanie pliku utworzyłoby drugie zadanie.",
+        "parameters": {
+          "method": "POST",
+          "url": "http://anonimizator:8000/dokumenty",
+          "sendBody": true,
+          "contentType": "multipart-form-data",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "parameterType": "formBinaryData",
+                "name": "plik",
+                "inputDataFieldName": "plik"
+              },
+              {
+                "name": "sesja",
+                "value": "={{ ($json.sesja || '').trim() }}"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 120000
+          }
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c03",
+        "name": "Czekaj 10 s",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          520,
+          -120
+        ],
+        "webhookId": "9b8c7d6e-5f4a-4b3c-8d2e-1f0a9b8c7d6e",
+        "parameters": {
+          "resume": "timeInterval",
+          "amount": 10,
+          "unit": "seconds"
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c04",
+        "name": "Stan zadania",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          760,
+          -120
+        ],
+        "onError": "continueErrorOutput",
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "notes": "Why HTTP: własny lokalny serwis anonimizator. Odczyt bez skutków ubocznych, więc z ponowieniami (restart kontenera).",
+        "parameters": {
+          "url": "=http://anonimizator:8000/zadania/{{ $('Wyślij do anonimizatora').item.json.zadanie }}",
+          "options": {
+            "timeout": 30000
+          }
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c05",
+        "name": "Status",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          1000,
+          -140
+        ],
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "c1a2b3c4-0000-4000-8000-000000000011",
+                      "leftValue": "={{ $json.status }}",
+                      "rightValue": "gotowe",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "gotowe"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "c1a2b3c4-0000-4000-8000-000000000012",
+                      "leftValue": "={{ $json.status }}",
+                      "rightValue": "do_przegladu",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "do przeglądu"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "c1a2b3c4-0000-4000-8000-000000000013",
+                      "leftValue": "={{ $json.status }}",
+                      "rightValue": "blad",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "błąd"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "w toku"
+          }
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c06",
+        "name": "Czas nie minął?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1240,
+          60
+        ],
+        "notes": "Limit pętli: 360 sprawdzeń po 10 s, czyli około godziny.",
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c1a2b3c4-0000-4000-8000-000000000021",
+                "leftValue": "={{ $runIndex }}",
+                "rightValue": 360,
+                "operator": {
+                  "type": "number",
+                  "operation": "lt"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c07",
+        "name": "Gotowe",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          1240,
+          -400
+        ],
+        "webhookId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c01",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "showText",
+          "responseText": "=<div style=\"font-family:system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#111\"><h2>Dokument zanonimizowany</h2><p>Kontrola tekstu i pliku: <b style=\"color:#185\">ok</b>. Podmian: {{ $json.dokument.podsumowanie.podmiany }}, sporne: {{ $json.dokument.podsumowanie.sporne }}, zostawione bez zmian: {{ $json.dokument.podsumowanie.zostawione }}.</p><p><a href=\"http://127.0.0.1:8090/dokumenty/{{ $json.dokument.id }}/zanonimizowany\">Pobierz plik zanonimizowany</a></p><p><a href=\"http://127.0.0.1:8090/dokumenty/{{ $json.dokument.id }}/raport\" target=\"_blank\">Raport porównawczy</a> (lokalny, z oryginałami: przejrzyj sporne i zostawione przed wysyłką na zewnątrz).</p><p>Sesja: <code>{{ $json.dokument.sesja }}</code>. Zapisz ją: jest potrzebna do deanonimizacji odpowiedzi modelu i do kolejnych dokumentów tej sprawy.</p></div>"
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c08",
+        "name": "Do przeglądu",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          1240,
+          -220
+        ],
+        "webhookId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c02",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "showText",
+          "responseText": "=<div style=\"font-family:system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#111\"><h2 style=\"color:#a40\">Dokument do przeglądu</h2><p>Kontrola znalazła możliwy wyciek albo niezgodność pliku z tekstem zanonimizowanym, więc plik nie jest wydawany. Nie wysyłaj go na zewnątrz.</p><p>Kontrola tekstu: {{ $json.dokument.podsumowanie.kontrola_tekstu }} (trafień {{ $json.dokument.podsumowanie.trafien_kontroli }}), kontrola pliku: {{ $json.dokument.podsumowanie.kontrola_pliku }} (różnic tekstu {{ $json.dokument.podsumowanie.roznic_tekstu_pliku }}, wycieków w pliku {{ $json.dokument.podsumowanie.wyciekow_w_pliku }}, pozostałości {{ $json.dokument.podsumowanie.pozostalosci }}).</p><p><a href=\"http://127.0.0.1:8090/dokumenty/{{ $json.dokument.id }}/raport\" target=\"_blank\">Raport porównawczy</a>: punkty 1 i 5 pokazują, co znalazła kontrola.</p><p>Sesja: <code>{{ $json.dokument.sesja }}</code>.</p></div>"
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c09",
+        "name": "Błąd przetwarzania",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          1240,
+          -40
+        ],
+        "webhookId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c03",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "text",
+          "completionTitle": "Anonimizacja nie powiodła się",
+          "completionMessage": "=Serwis zgłosił błąd w etapie „{{ $json.etap }}”: {{ $json.blad }}. Plik nie został wydany. Szczegóły w logu kontenera anonimizator (docker compose logs anonimizator).",
+          "options": {}
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c10",
+        "name": "Przekroczony czas",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          1480,
+          160
+        ],
+        "webhookId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c04",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "text",
+          "completionTitle": "Przetwarzanie trwa ponad godzinę",
+          "completionMessage": "=Zadanie {{ $('Wyślij do anonimizatora').item.json.zadanie }} nadal działa w tle. Stan: http://127.0.0.1:8090/zadania/{{ $('Wyślij do anonimizatora').item.json.zadanie }}, dokument: http://127.0.0.1:8090/dokumenty/{{ $('Wyślij do anonimizatora').item.json.dokument }}.",
+          "options": {}
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c11",
+        "name": "Przyczyna odrzucenia",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          520,
+          200
+        ],
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "c1a2b3c4-0000-4000-8000-000000000031",
+                      "leftValue": "={{ JSON.stringify($json) }}",
+                      "rightValue": "415",
+                      "operator": {
+                        "type": "string",
+                        "operation": "contains"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "nieobsługiwany plik"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "c1a2b3c4-0000-4000-8000-000000000032",
+                      "leftValue": "={{ JSON.stringify($json) }}",
+                      "rightValue": "Nie ma sesji",
+                      "operator": {
+                        "type": "string",
+                        "operation": "contains"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "brak sesji"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "awaria serwisu"
+          }
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c12",
+        "name": "Nieobsługiwany plik",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          780,
+          120
+        ],
+        "webhookId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c05",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "text",
+          "completionTitle": "Nieobsługiwany plik",
+          "completionMessage": "Serwis przyjmuje DOCX i PDF. Plik nie został przetworzony.",
+          "options": {}
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c13",
+        "name": "Brak sesji",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          780,
+          280
+        ],
+        "webhookId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c06",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "text",
+          "completionTitle": "Nie znaleziono sesji",
+          "completionMessage": "=Sesja „{{ ($('Formularz').item.json.sesja || '').trim() }}” nie istnieje. Zostaw pole puste, żeby założyć nową, albo popraw identyfikator. Plik nie został przetworzony.",
+          "options": {}
+        }
+      },
+      {
+        "id": "5b1e0d6a-7c2f-4a1e-9b3d-1f2e3a4b5c14",
+        "name": "Błąd serwisu",
+        "type": "n8n-nodes-base.form",
+        "typeVersion": 2.5,
+        "position": [
+          780,
+          440
+        ],
+        "webhookId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c07",
+        "parameters": {
+          "operation": "completion",
+          "respondWith": "text",
+          "completionTitle": "Serwis nie odpowiada",
+          "completionMessage": "Serwis anonimizator nie odpowiedział poprawnie. Sprawdź, czy kontener anonimizator działa (docker compose ps w katalogu serwis), i wyślij formularz ponownie.",
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Formularz": {
+        "main": [
+          [
+            {
+              "node": "Wyślij do anonimizatora",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Wyślij do anonimizatora": {
+        "main": [
+          [
+            {
+              "node": "Czekaj 10 s",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Przyczyna odrzucenia",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Czekaj 10 s": {
+        "main": [
+          [
+            {
+              "node": "Stan zadania",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Stan zadania": {
+        "main": [
+          [
+            {
+              "node": "Status",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Błąd serwisu",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Status": {
+        "main": [
+          [
+            {
+              "node": "Gotowe",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Do przeglądu",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Błąd przetwarzania",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Czas nie minął?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Czas nie minął?": {
+        "main": [
+          [
+            {
+              "node": "Czekaj 10 s",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Przekroczony czas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Przyczyna odrzucenia": {
+        "main": [
+          [
+            {
+              "node": "Nieobsługiwany plik",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Brak sesji",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Błąd serwisu",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": null,
+    "meta": null,
+    "nodeGroups": [],
+    "pinData": null,
+    "versionId": "bfe1626c-d134-4dbf-8775-a06544139b1c",
+    "activeVersionId": "bfe1626c-d134-4dbf-8775-a06544139b1c",
+    "versionCounter": 1,
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-11-17T22:03:04.271Z",
+        "createdAt": "2026-11-17T22:03:04.271Z",
+        "role": "workflow:owner",
+        "workflowId": "OCIPF5OMK3R0TbQq",
+        "projectId": "U88VezJSNx06VaWM",
+        "project": {
+          "updatedAt": "2026-11-17T17:46:36.207Z",
+          "createdAt": "2026-11-17T17:44:35.296Z",
+          "id": "U88VezJSNx06VaWM",
+          "name": "Twoje Imie <twoj.email@example.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "5b23fe8c-a378-4b75-b295-980a3bd9200b"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

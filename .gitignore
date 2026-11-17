@@ -15,3 +15,6 @@ serwis/testy/wyniki/cache_*.json
 # Python
 __pycache__/
 *.pyc
+
+# Pliki wzorcowe DOCX i PDF generowane przez app.ewaluacja.pliki (odtwarzalne z wzorców)
+serwis/testy/wyniki/pliki/

@@ -21,6 +21,12 @@ ENV EASYOCR_MODULE_PATH=/opt/easyocr
 RUN python -c "import easyocr; easyocr.Reader(['pl'], gpu=False)"
 ENV HF_NER_MODEL=${HF_NER_MODEL} HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 
+# Pliki PDF i DOCX (etap 3), osobna warstwa po modelach
+COPY requirements-pliki.txt .
+RUN pip install --no-cache-dir -r requirements-pliki.txt
+# Czcionka zastępcza z polskimi znakami do wpisywania surogatów w PDF
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+
 COPY app ./app
 COPY testy ./testy
 

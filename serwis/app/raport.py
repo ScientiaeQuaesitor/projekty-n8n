@@ -137,6 +137,24 @@ def zbuduj(tytul: str, oryginal: str, wynik: dict, ocr: dict | None = None) -> s
                       f'więc detekcja mogła je pominąć: porównaj je ze skanem.</p>'
                       + (f"<table><tr><th>strona</th><th>wierszy</th><th>poprawionych</th><th>niepewnych</th><th>numery niepewnych wierszy na stronie</th></tr>{strony}</table>" if strony else ""))
 
+    # 5. Kontrola pliku wynikowego (DOCX, PDF): zgodność tekstu pliku z tekstem zanonimizowanym, wyciek w całym
+    # pliku (metadane, XML), pozostałości (obrazy, załączniki) i to, co z pliku usunięto
+    sekcja_plik = ""
+    kp = wynik.get("kontrola_pliku")
+    if kp:
+        klasa = "ok" if kp["status"] == "ok" else "zle"
+        pozycje = ([f"<li>Różnica tekstu pliku: {html.escape(r)}</li>" for r in kp.get("roznice_tekstu", [])]
+                   + [f"<li>Wyciek w pliku: {html.escape(t['rodzaj'])}, {html.escape(t['kat'])}: „{html.escape(t['tekst'])}”</li>"
+                      for t in kp.get("wyciek", [])]
+                   + [f"<li>Pozostałość: {html.escape(p)}</li>" for p in kp.get("pozostalosci", [])])
+        usuniete = ", ".join(f"{html.escape(k)}: {v}" for k, v in (wynik.get("czyszczenie") or {}).items()) or "nic"
+        sekcja_plik = (f'<h2>5. Kontrola pliku wynikowego: <span class="status {klasa}">{"ok" if klasa == "ok" else "do przeglądu"}</span></h2>'
+                       + (f"<ul>{''.join(pozycje)}</ul>" if pozycje else
+                          "<p>Tekst odczytany ponownie z pliku zgadza się z wersją zanonimizowaną, w całym pliku (także metadanych) "
+                          "nie ma oryginałów z mapy sesji ani niepodmienionych numerów, nie zostały obrazy ani załączniki.</p>")
+                       + f"<p>Usunięte z pliku: {usuniete}.</p>")
+    naglowek_oryginalu = "Tekst odczytany ze skanu (OCR, może zawierać błędy odczytu)" if ocr else "Oryginał"
+
     liczniki = Counter(p["typ"] for p in podmiany)
     unikalne = sorted({(p["typ"], p["oryginal"], p["surogat"]) for p in podmiany})
     wiersze_map = "".join(f"<tr><td>{html.escape(t)}</td><td>{html.escape(o)}</td><td>{html.escape(s)}</td></tr>" for t, o, s in unikalne)
@@ -167,10 +185,11 @@ const e=document.getElementById(location.hash.slice(1));if(e)e.classList.add("ce
 <h2>4. Wykryte, ale bez podmiany ({len(bez)})</h2>
 {f"<table><tr><th>fragment</th><th>typ</th><th>powód</th></tr>{''.join(bez)}</table>" if bez else "<p>Brak.</p>"}
 {sekcja_ocr}
+{sekcja_plik}
 </div>
 <p class="leg">{legenda}</p>
 <p>Najedź na zaznaczenie, żeby zobaczyć drugą stronę podmiany.</p>
-<div class="kol"><div><h3>Oryginał</h3>{_zaznacz(oryginal, lewe)}</div><div><h3>Wersja zanonimizowana</h3>{_zaznacz(anon, prawe)}</div></div>
+<div class="kol"><div><h3>{naglowek_oryginalu}</h3>{_zaznacz(oryginal, lewe)}</div><div><h3>Wersja zanonimizowana</h3>{_zaznacz(anon, prawe)}</div></div>
 <h2>Tabela podmian</h2>
 <table><tr><th>typ</th><th>oryginał</th><th>surogat</th></tr>{wiersze_map}</table>
 </body></html>"""
