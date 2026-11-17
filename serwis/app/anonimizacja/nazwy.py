@@ -79,8 +79,47 @@ def podmien_wlasne(sesja: Sesja, rdzen: str, tekst: str, start: int, ctx) -> str
 
 KONCOWKI_IGN = {"": {"nom", "acc"}, "u": {"gen", "loc"}, "a": {"gen"}, "owi": {"dat"}, "em": {"inst"}, "iem": {"inst"},
                 "ie": {"loc"}, "y": {"gen"}, "i": {"gen"}, "ę": {"acc"}, "ą": {"inst"}}
-ODMIANA_IGN_M = {"nom": "", "gen": "u", "dat": "owi", "acc": "", "inst": "em", "loc": "ie", "voc": "ie"}
-ODMIANA_IGN_F = {"nom": "a", "gen": "y", "dat": "ie", "acc": "ę", "inst": "ą", "loc": "ie", "voc": "o"}
+
+# Wymiany spółgłosek przed końcówką -e miejscownika (rodzaj męski) i celownika/miejscownika (żeński): reguła
+# fonologiczna polszczyzny, nie lista nazw. Najdłuższe zakończenie tematu wygrywa.
+WYMIANY_E = [("st", "ście"), ("zd", "ździe"), ("sł", "śle"), ("zł", "źle"), ("sn", "śnie"), ("zn", "źnie"),
+             ("t", "cie"), ("d", "dzie"), ("r", "rze"), ("ł", "le")]
+TYLNE = ("k", "g", "ch")
+MIEKKIE = ("c", "cz", "sz", "rz", "ż", "dz", "dż", "j", "l", "ś", "ź", "ć", "ń")
+
+
+def _temat_e(temat: str) -> str:
+    """Temat z końcówką -e po wymianie: „Stalmet” -> „Stalmecie”, „Ekoplast” -> „Ekoplaście”, „Elwod” -> „Elwodzie”."""
+    for kon, zam in WYMIANY_E:
+        if temat.endswith(kon):
+            return temat[:-len(kon)] + zam
+    return temat + "ie"
+
+
+def formy_ign(lemat: str) -> dict[str, str]:
+    """Odmiana nazwy spoza słownika według reguł wzorca regularnego. Rodzaj żeński dla zakończonych na -a, męski
+    nieżywotny dla zakończonych spółgłoską; zakończone inną samogłoską są nieodmienne. Końcowe -x przechodzi w -ks
+    („Budimpex”, „Budimpeksu”)."""
+    if lemat.endswith("a"):
+        t = lemat[:-1]
+        if t.endswith(TYLNE):
+            gen, dat = t + "i", {"k": t[:-1] + "ce", "g": t[:-1] + "dze"}.get(t[-1], t[:-2] + "sze")
+        elif t.endswith(MIEKKIE):
+            gen = t + ("i" if t.endswith(("l", "j", "ś", "ź", "ć", "ń")) else "y")
+            dat = gen
+        else:
+            gen, dat = t + "y", _temat_e(t)
+        return {"nom": lemat, "gen": gen, "dat": dat, "acc": t + "ę", "inst": t + "ą", "loc": dat, "voc": t + "o"}
+    if not lemat or lemat[-1].lower() in "aąeęioóuy":
+        return {p: lemat for p in ("nom", "gen", "dat", "acc", "inst", "loc", "voc")}
+    t = lemat[:-1] + "ks" if lemat.endswith("x") else lemat
+    if t.endswith(TYLNE):
+        loc, inst = t + "u", t + "iem"
+    elif t.endswith(MIEKKIE):
+        loc, inst = t + "u", t + "em"
+    else:
+        loc, inst = _temat_e(t), t + "em"
+    return {"nom": lemat, "gen": t + "u", "dat": t + "owi", "acc": lemat, "inst": inst, "loc": loc, "voc": loc}
 
 
 def _an(w: str):
@@ -183,7 +222,11 @@ def analizuj_nazwe(rdzen: str, ctx) -> dict | None:
             lemat = ctx.lemat_ign(pierwsze)
             # Końcówka mówi coś o przypadku tylko wtedy, gdy znamy formę podstawową z dokumentu
             pewny_lemat = lemat != pierwsze or any(s != pierwsze and s.lower().startswith(pierwsze.lower()) for s in ctx.ign)
-            klasa, kand = "ign", (KONCOWKI_IGN.get(pierwsze[len(lemat):].lower(), set()) if pewny_lemat else set())
+            kand = set()
+            if pewny_lemat:
+                kand = set(KONCOWKI_IGN.get(pierwsze[len(lemat):].lower(), set())) if pierwsze.lower().startswith(lemat.lower()) else set()
+                kand |= {p for p, f in formy_ign(lemat).items() if p != "voc" and f.lower() == pierwsze.lower()}
+            klasa = "ign"
         grupa = [{"lemat": lemat, "klasa": klasa, "wzor": pierwsze, "pre": ""}]
         tro = {("sg", p, "f" if lemat.endswith("a") and klasa == "ign" else "m3") for p in (kand or gram.KOLEJNOSC[:6])}
         koniec = slowa[0].end()
@@ -337,10 +380,9 @@ def forma_nazwy(sesja: Sesja, kat: str, klucz: str, dane: dict, przyp: str) -> t
         if g["klasa"] == "nieodm":
             forma = lemat
         elif g["klasa"] == "ign":
-            if lemat.endswith("a"):
-                forma = lemat[:-1] + ODMIANA_IGN_F[przyp]
-            else:
-                forma = lemat + ODMIANA_IGN_M[przyp]
+            # Forma niewidziana w oryginale: reguła odmiany z wymianami spółgłosek („Stalmecie”, nie „Stalmetie”).
+            # Nadal niepewna, bo nazwa spoza słownika może mieć odmianę nieregularną.
+            forma = formy_ign(lemat)[przyp]
             pewna = pewna and przyp in ("nom", "acc" if not lemat.endswith("a") else "nom")
         else:
             for i in morf.generuj(lemat):

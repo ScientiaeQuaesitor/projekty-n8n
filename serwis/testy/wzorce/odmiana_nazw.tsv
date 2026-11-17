@@ -1,0 +1,21 @@
+# Test odmiany nazw spoza słownika (PLAN 3.6). Dane fikcyjne. Kolumny: mianownik, dopełniacz, celownik, biernik, narzędnik, miejscownik.
+# To jest test reguły (app.ewaluacja.odmiana), nie lista używana przez silnik.
+Stalmet	Stalmetu	Stalmetowi	Stalmet	Stalmetem	Stalmecie
+Budimpex	Budimpeksu	Budimpeksowi	Budimpex	Budimpeksem	Budimpeksie
+Medikon	Medikonu	Medikonowi	Medikon	Medikonem	Medikonie
+Farmaks	Farmaksu	Farmaksowi	Farmaks	Farmaksem	Farmaksie
+Drutpak	Drutpaku	Drutpakowi	Drutpak	Drutpakiem	Drutpaku
+Mlekpol	Mlekpolu	Mlekpolowi	Mlekpol	Mlekpolem	Mlekpolu
+Agrofarm	Agrofarmu	Agrofarmowi	Agrofarm	Agrofarmem	Agrofarmie
+Metalchem	Metalchemu	Metalchemowi	Metalchem	Metalchemem	Metalchemie
+Kolbest	Kolbestu	Kolbestowi	Kolbest	Kolbestem	Kolbeście
+Grafitex	Grafiteksu	Grafiteksowi	Grafitex	Grafiteksem	Grafiteksie
+Ekoplast	Ekoplastu	Ekoplastowi	Ekoplast	Ekoplastem	Ekoplaście
+Rolmasz	Rolmaszu	Rolmaszowi	Rolmasz	Rolmaszem	Rolmaszu
+Budrex	Budreksu	Budreksowi	Budrex	Budreksem	Budreksie
+Elwod	Elwodu	Elwodowi	Elwod	Elwodem	Elwodzie
+Lakma	Lakmy	Lakmie	Lakmę	Lakmą	Lakmie
+Farmeda	Farmedy	Farmedzie	Farmedę	Farmedą	Farmedzie
+Agrola	Agroli	Agroli	Agrolę	Agrolą	Agroli
+Kormaga	Kormagi	Kormadze	Kormagę	Kormagą	Kormadze
+Medika	Mediki	Medice	Medikę	Mediką	Medice

@@ -57,8 +57,13 @@ class Kontekst:
                         self.dlugie.add((kat, dlugi))
 
     def lemat_ign(self, w: str) -> str:
-        kand = [s for s in self.ign if w.lower().startswith(s.lower()) and w[len(s):].lower() in nazwy.KONCOWKI_IGN]
-        return min(kand, key=len) if kand else w
+        # Forma z wymianą spółgłoski („Stalmecie”, „Budimpeksu”) nie zaczyna się od formy podstawowej, więc lemat
+        # rozpoznaje też reguła odmiany
+        kand = [s for s in self.ign if (w.lower().startswith(s.lower()) and w[len(s):].lower() in nazwy.KONCOWKI_IGN)
+                or w.lower() in {f.lower() for f in nazwy.formy_ign(s).values()}]
+        # Remis długości („Medika” i „Medice”, „Lakma” i „Lakmy”) rozstrzyga forma inna niż samo słowo, potem alfabet.
+        # Bez tego wynik zależał od kolejności zbioru, czyli zmieniał się między uruchomieniami procesu.
+        return min(kand, key=lambda s: (len(s), s == w, s)) if kand else w
 
     def analizy_zakresu(self, kat: str, rdzen: str) -> dict | None:
         if (kat, rdzen) not in self._pamiec:
