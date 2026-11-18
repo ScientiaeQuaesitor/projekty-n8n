@@ -153,7 +153,7 @@ def anonimizuj_plik(sesja: Sesja, nazwa: str, dane: bytes, encje=None, **opcje) 
     wydawany."""
     typ = rodzaj(nazwa, dane)
     plik = otworz(typ, dane)
-    wynik = silnik.anonimizuj(sesja, plik.model.tekst, encje, **opcje)
+    wynik = silnik.anonimizuj(sesja, plik.model.tekst, encje, typy_wymuszone=getattr(plik, "typy_wymuszone", None), **opcje)
     oczekiwane = None
     if typ == "pdf":
         oczekiwane = _wiersze_pdf(plik, plik.model.edycje(wynik["podmiany"]))

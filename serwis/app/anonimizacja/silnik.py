@@ -348,14 +348,19 @@ def encje_z_sesji(sesja: Sesja, tekst: str) -> list[Encja]:
 
 def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detektory: list[str] | None = None,
                weryfikuj: bool = True, pamiec: dict | None = None, model_klasyfikacji: str | None = None,
-               zapisz_pamiec=None, czasy: dict | None = None) -> dict:
-    """czasy, jeśli podane, dostają czas faz w sekundach: detekcja, scalanie, klasyfikacja (na wariant), podmiana."""
+               zapisz_pamiec=None, czasy: dict | None = None, typy_wymuszone: dict | None = None) -> dict:
+    """czasy, jeśli podane, dostają czas faz w sekundach: detekcja, scalanie, klasyfikacja (na wariant), podmiana.
+    typy_wymuszone: (start, end) -> (typ, pewna) dla zakresów, których typ zna format pliku (liczba w komórce XLSX
+    opisana nagłówkiem „PESEL”): zastępują każdą encję nachodzącą na zakres."""
     czasy = czasy if czasy is not None else {}
     t0 = time.time()
     if encje is None:
         encje = detekcja.wykryj(tekst, detektory or DOMYSLNE_DETEKTORY)
         czasy["detekcja"] = round(time.time() - t0, 1)
     encje = list(encje) + encje_z_sesji(sesja, tekst)
+    if typy_wymuszone:
+        encje = [e for e in encje if all(e.end <= a or e.start >= b for a, b in typy_wymuszone)]
+        encje += [Encja(a, b, typ, "regex", tekst[a:b], pewna) for (a, b), (typ, pewna) in typy_wymuszone.items()]
     t0 = time.time()
     zakresy = scal(tekst, encje)
     czasy["scalanie"] = round(time.time() - t0, 1)

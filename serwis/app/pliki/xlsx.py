@@ -2,9 +2,12 @@
 
 Kawałek to tekst komórki (element t w is, z przebiegami tekstu sformatowanego), wartość tekstowa wyniku formuły
 (t="str", wartość zapisana w pliku) i tekst nagłówka lub stopki wydruku. Komórki liczbowe (kwoty, daty, każda liczba
-zapisana jako liczba) nie trafiają do tekstu ciągłego ani do kontroli wycieku i nigdy nie są zmieniane: liczby są
-danymi do analizy, a dziesięciocyfrowa kwota ma kształt NIP (decyzja użytkownika, PRZEKAZANIE 2.00.17). Identyfikator
-zapisany jako tekst (PESEL z zerem na początku, NIP z kreskami) jest anonimizowany jak w każdym dokumencie.
+zapisana jako liczba) nie trafiają do tekstu ciągłego ani do kontroli wycieku i nie są zmieniane: liczby są danymi do
+analizy, a dziesięciocyfrowa kwota ma kształt NIP (decyzja użytkownika, PRZEKAZANIE 2.00.17). Wyjątek: liczba całkowita
+opisana jako identyfikator, czyli komórka tekstowa tuż na lewo albo najbliższy tekst nad nią w tej samej kolumnie
+(nagłówek) nazywa typ numeru („PESEL”, „NIP”, „REGON”, „KRS”, „telefon”, „tel.”, PRZEKAZANIE 2.00.18). Taka liczba jest kawałkiem z typem
+narzuconym silnikowi (`typy_wymuszone`), bo detekcja z samego kształtu nie odróżni REGON od telefonu ani NIP od kwoty.
+Identyfikator zapisany jako tekst jest anonimizowany jak w każdym dokumencie.
 
 Tekst ciągły: arkusz po arkuszu, wiersz po wierszu, komórki wiersza rozdzielone „ | ”. Nagłówki kolumn stoją w wierszu
 nad danymi, więc detekcja i klasyfikacja mają kontekst kolumny („Nazwisko | PESEL” nad „Kowalski | 85…”).
@@ -43,6 +46,64 @@ RX_ARKUSZ = re.compile(r"xl/worksheets/sheet\d+\.xml")
 # formuły, w których mogą stać dane; odwołania do komórek („B12-C12”) nie są ani danymi, ani numerami
 RX_LITERAL = re.compile(r'"((?:[^"]|"")*)"')
 FORMULY = ("f", "formula", "formula1", "formula2")
+# Opis komórki liczbowej nazywający typ identyfikatora (krótki tekst: etykieta albo nagłówek kolumny, nie zdanie)
+RX_OPIS = re.compile(r"(?<!\p{L})(PESEL|NIP|REGON|KRS|TELEFON|TEL)(?!\p{L})", re.I)
+RX_LICZBA_CALK = re.compile(r"\d+|\d(?:\.\d+)?E\+?\d+", re.I)
+MAKS_OPIS = 40
+
+
+def _calkowita(v: str) -> str | None:
+    """Wartość komórki jako cyfry liczby całkowitej (także zapis wykładniczy „9.3052549633E+10”), inaczej None."""
+    if not RX_LICZBA_CALK.fullmatch(v):
+        return None
+    from decimal import Decimal
+    d = Decimal(v)
+    return str(int(d)) if d == d.to_integral_value() else None
+
+
+def _tekst_komorki(c) -> str | None:
+    t = c.get("t")
+    if t == "inlineStr":
+        return "".join(e.text or "" for e in c.iter(_m("t")))
+    if t == "str":
+        v = c.find("m:v", NS)
+        return (v.text or "") if v is not None else ""
+    return None
+
+
+def _typ_opisu(etykieta: str | None) -> str | None:
+    if etykieta and len(etykieta.strip()) <= MAKS_OPIS:
+        m = RX_OPIS.search(etykieta)
+        return {"TEL": "TELEFON"}.get(m.group(1).upper(), m.group(1).upper()) if m else None
+    return None
+
+
+def opisane_liczby(arkusz) -> dict:
+    """Element v komórki liczbowej -> typ identyfikatora z opisu: komórka tekstowa tuż na lewo w wierszu albo
+    najbliższa komórka tekstowa nad nią w tej samej kolumnie."""
+    out, naglowki = {}, {}
+    for row in arkusz.iter(_m("row")):
+        lewa = None
+        for i, c in enumerate(row.iterfind("m:c", NS)):
+            mm = re.match(r"[A-Z]+", c.get("r") or "")
+            kol = mm.group() if mm else i
+            t = _tekst_komorki(c)
+            if t is not None:
+                if t.strip():
+                    lewa = naglowki[kol] = t
+                continue
+            v = c.find("m:v", NS)
+            if c.get("t", "n") == "n" and v is not None and v.text and _calkowita(v.text):
+                typ = _typ_opisu(lewa) or _typ_opisu(naglowki.get(kol))
+                if typ:
+                    out[v] = typ
+            lewa = None   # etykieta opisuje tylko komórkę tuż za nią
+    return out
+
+
+def _pewny(typ: str, cyfry: str) -> bool:
+    from ..detekcja import regexy
+    return {"PESEL": regexy.pesel_ok, "NIP": regexy.nip_ok, "REGON": regexy.regon_ok}.get(typ, lambda s: True)(cyfry)
 
 
 def _m(tag: str) -> str:
@@ -55,6 +116,7 @@ class Xlsx:
             self.pliki = {n: z.read(n) for n in z.namelist()}
         self.xml: dict[str, etree._Element] = {}
         self.czyszczenie: dict[str, int] = {}
+        self.typy_wymuszone: dict[tuple[int, int], tuple[str, bool]] = {}
         self._wyczysc()
         self.model = self._model()
 
@@ -139,6 +201,12 @@ class Xlsx:
             if nr:
                 m.separator("\n\n")
             pierwszy_wiersz = True
+            opisane = opisane_liczby(self.xml[n])
+            for v, typ in opisane.items():
+                # Zapis kanoniczny bez zmiany wartości: cyfry zamiast zapisu wykładniczego, PESEL z zerem na początku
+                # (osoba urodzona w latach 2000-2009 zapisana liczbą traci zero)
+                cyfry = _calkowita(v.text)
+                v.text = cyfry.zfill(11) if typ == "PESEL" and len(cyfry) == 10 else cyfry
             for row in self.xml[n].iter(_m("row")):
                 komorki = []
                 for c in row.iterfind("m:c", NS):
@@ -151,6 +219,8 @@ class Xlsx:
                         v = c.find("m:v", NS)
                         if v is not None and v.text:
                             komorki.append([v])
+                    elif c.find("m:v", NS) in opisane:
+                        komorki.append([c.find("m:v", NS)])
                 if not komorki:
                     continue
                 if not pierwszy_wiersz:
@@ -160,6 +230,9 @@ class Xlsx:
                     if i:
                         m.separator(" | ")
                     for e in el:
+                        if e in opisane:
+                            a = len(m.zrodlo)
+                            self.typy_wymuszone[(a, a + len(e.text))] = (opisane[e], _pewny(opisane[e], e.text))
                         m.dodaj(e.text, (n, e))
             # Teksty w formułach i listach wyboru (walidacja danych), z odwołaniem do zakresu w elemencie
             # Lista wyboru „"A,B"” to osobne wartości rozdzielone przecinkiem: każda jest osobnym kawałkiem
@@ -195,6 +268,15 @@ class Xlsx:
             el.text = zastosuj(el.text, edycje)
             if etree.QName(el).localname == "t":
                 el.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+            else:
+                c = el.getparent()
+                if c.get("t", "n") == "n" and not el.text.isdigit():
+                    # Surogat opisanego identyfikatora nie jest liczbą („123-456-32-18”): komórka staje się tekstem
+                    tekst = el.text
+                    c.remove(el)
+                    c.set("t", "inlineStr")
+                    is_ = etree.SubElement(c, _m("is"))
+                    etree.SubElement(is_, _m("t")).text = tekst
 
     def zapisz(self) -> bytes:
         for n, x in self.xml.items():
@@ -209,7 +291,8 @@ class Xlsx:
 def tekst_surowy(dane: bytes) -> str:
     """Jak w DOCX: wszystkie części XML (komórki, nazwy arkuszy i zdefiniowane, metadane), część binarna zgłaszana.
     Z formuł tylko teksty w cudzysłowie. Wartości komórek innych niż tekstowe (liczby, daty, wartości logiczne, błędy)
-    są pomijane: nie są zmieniane, więc kontrola nie może ich zgłaszać jako numer bez podmiany."""
+    są pomijane: nie są zmieniane, więc kontrola nie może ich zgłaszać jako numer bez podmiany. Wyjątek: liczba opisana
+    jako identyfikator (opisane_liczby) jest czytana, bo powinna była zostać podmieniona."""
     with zipfile.ZipFile(io.BytesIO(dane)) as z:
         pliki = {}
         for n in z.namelist():
@@ -220,7 +303,12 @@ def tekst_surowy(dane: bytes) -> str:
                     if el.text:
                         el.text = " ¦ ".join(mm.group(1) for mm in RX_LITERAL.finditer(el.text))
                 if RX_ARKUSZ.fullmatch(n):
+                    opisane = opisane_liczby(x)
+                    for v in opisane:
+                        v.text = _calkowita(v.text)
                     for c in x.iter(_m("c")):
+                        if c.find("m:v", NS) in opisane:
+                            continue
                         if c.get("t", "n") in ("n", "d", "b", "e"):
                             for v in c.iterfind("m:v", NS):
                                 v.text = None

@@ -171,8 +171,9 @@ KWOTY_JAK_NIP = ("5846254620", "1234563218", "123456785")
 
 def xlsx_z_wzorca(tekst: str, wzorce) -> bytes:
     """Skoroszyt z dwoma arkuszami: treść dokumentu wiersz po wierszu (teksty wspólne, jeden użyty dwa razy) i lista
-    osób z nagłówkiem, PESEL zapisanym jako tekst, kwotą, dziesięciocyfrową kwotą o kształcie NIP (komórka liczbowa,
-    musi zostać bez zmian) i formułą z zapisaną wartością tekstową. Komentarz z nazwiskiem, metadane z autorem."""
+    osób z nagłówkiem, PESEL zapisanym jako liczba pod nagłówkiem „PESEL” (musi być podmieniony, PRZEKAZANIE 2.00.18),
+    kwotą, dziesięciocyfrową kwotą o kształcie NIP bez opisu (komórka liczbowa, musi zostać bez zmian), wierszem
+    „NIP | liczba” (etykieta na lewo) i formułą z zapisaną wartością tekstową. Komentarz z nazwiskiem, metadane z autorem."""
     linie = [l for l in tekst.split("\n") if l.strip()]
     osoby = [w.tekst for w in wzorce if w.typ == "OSOBA"][:4] or ["Jan Testowy"]
     pesele = [w.tekst for w in wzorce if w.typ == "PESEL"]
@@ -187,11 +188,16 @@ def xlsx_z_wzorca(tekst: str, wzorce) -> bytes:
         r = j + 2
         pesel = re.sub(r"\D", "", pesele[j % len(pesele)]) if pesele else ""
         w2.append(f'<row r="{r}"><c r="A{r}" t="s"><v>{idx[o]}</v></c>'
-                  + (f'<c r="B{r}" t="inlineStr"><is><t>{pesel}</t></is></c>' if pesel else "")
+                  + (f'<c r="B{r}"><v>{int(pesel)}</v></c>' if pesel else "")
                   + f'<c r="C{r}"><v>{1250.5 * r}</v></c><c r="H{r}"><v>{KWOTY_JAK_NIP[j % len(KWOTY_JAK_NIP)]}</v></c><c r="D{r}" t="str"><f>A{r}</f><v>{_esc(o)}</v></c>'
                   + f'<c r="E{r}"><f>C{r}-C{r + 1}</f><v>-1250.5</v></c>'
                   + f'<c r="F{r}" t="str"><f>"kontakt: "&amp;A{r}&amp;" ({_esc(firma).replace(chr(34), chr(34) * 2)})"</f>'
                   + f'<v>kontakt: {_esc(o)} ({_esc(firma)})</v></c></row>')
+    nipy = [re.sub(r"\D", "", w.tekst) for w in wzorce if w.typ == "NIP"]
+    if nipy:
+        r = len(osoby) + 2
+        w2.append(f'<row r="{r}"><c r="A{r}" t="inlineStr"><is><t>NIP</t></is></c><c r="B{r}"><v>{nipy[0]}</v></c>'
+                  f'<c r="C{r}"><v>{KWOTY_JAK_NIP[0]}</v></c></row>')
     # Lista rozwijana (walidacja danych) z nazwą firmy: Excel trzyma ją w formule, poza komórkami
     walidacja = (f'<dataValidations count="1"><dataValidation type="list" sqref="G2:G9"><formula1>"{_esc(firma).replace(chr(34), chr(34) * 2)},inna"'
                  f'</formula1></dataValidation></dataValidations>')
@@ -237,17 +243,17 @@ def xlsx_z_wzorca(tekst: str, wzorce) -> bytes:
 
 
 def _liczby_xlsx(dane: bytes) -> dict:
-    """(arkusz, adres) -> wartość każdej komórki liczbowej."""
-    import zipfile
-    from lxml import etree
+    """(arkusz, adres) -> wartość każdej komórki liczbowej, która nie jest opisanym identyfikatorem. Arkusze po tym
+    samym czyszczeniu co przy anonimizacji: nagłówek „PESEL” bywa tekstem wspólnym (sharedStrings), a opis czyta
+    tylko tekst w komórce."""
     out = {}
-    with zipfile.ZipFile(io.BytesIO(dane)) as z:
-        for n in z.namelist():
-            if pliki.fxlsx.RX_ARKUSZ.fullmatch(n):
-                for c in etree.fromstring(z.read(n)).iter(f"{{{pliki.fxlsx.M}}}c"):
-                    v = c.find(f"{{{pliki.fxlsx.M}}}v")
-                    if c.get("t", "n") == "n" and v is not None:
-                        out[(n, c.get("r"))] = v.text
+    for n, x in pliki.fxlsx.Xlsx(dane).xml.items():
+        if pliki.fxlsx.RX_ARKUSZ.fullmatch(n):
+            opisane = pliki.fxlsx.opisane_liczby(x)
+            for c in x.iter(f"{{{pliki.fxlsx.M}}}c"):
+                v = c.find(f"{{{pliki.fxlsx.M}}}v")
+                if c.get("t", "n") == "n" and v is not None and v not in opisane:
+                    out[(n, c.get("r"))] = v.text
     return out
 
 
