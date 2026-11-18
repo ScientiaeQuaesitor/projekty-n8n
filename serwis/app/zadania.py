@@ -159,13 +159,38 @@ def _wykonaj(c, z) -> None:
                     "kontrola_tekstu": wynik["kontrola"]["status"], "trafien_kontroli": len(wynik["kontrola"]["trafienia"]),
                     "kontrola_pliku": kp.get("status", "brak"), "roznic_tekstu_pliku": kp.get("liczba_roznic", 0),
                     "wyciekow_w_pliku": len(kp.get("wyciek", [])), "pozostalosci": len(kp.get("pozostalosci", [])),
-                    "czyszczenie": wynik.get("czyszczenie", {})}
+                    "czyszczenie": wynik.get("czyszczenie", {}),
+                    "mozna_zatwierdzic": status == "do_przegladu" and not alarm_pewny(wynik)}
     czasy["razem"] = round(time.time() - t0, 1)
     c.execute("UPDATE dokument SET status = ?, plik_wynikowy = ?, raport = 'raport.html', podsumowanie = ? WHERE id = ?",
-              (status, nazwa_wy if status == "gotowe" else None, json.dumps(podsumowanie, ensure_ascii=False), dok["id"]))
+              (status, nazwa_wy, json.dumps(podsumowanie, ensure_ascii=False), dok["id"]))
     c.execute("UPDATE zadanie SET status = ?, etap = 'koniec', zakonczone = CURRENT_TIMESTAMP, czasy = ? WHERE id = ?",
               (status, json.dumps(czasy), z["id"]))
     audyt(f"anonimizacja: {status}", dok["sesja"], dok["id"], model, hashlib.sha256(wynik["tekst"].encode()).hexdigest())
+
+
+def alarm_pewny(wynik: dict) -> bool:
+    """Alarm, którego nie można zatwierdzić: oryginał z mapy sesji albo numer z poprawną sumą kontrolną w tekście lub
+    w pliku, albo pozostałość (obraz, załącznik) w pliku wynikowym. Różnice tekstu pliku i numery niepewne można
+    zatwierdzić po przejrzeniu raportu."""
+    kp = wynik.get("kontrola_pliku") or {}
+    trafienia = list(wynik["kontrola"]["trafienia"]) + list(kp.get("wyciek", []))
+    return any(t.get("pewny", True) for t in trafienia) or bool(kp.get("pozostalosci"))
+
+
+def zatwierdz(id: str) -> dict:
+    """Ręczne zatwierdzenie dokumentu do przeglądu z alarmem niepewnym: status gotowe, wpis w audycie."""
+    d = dokument(id)
+    if not d:
+        raise KeyError(id)
+    if d["status"] != "do_przegladu" or not d["podsumowanie"].get("mozna_zatwierdzic"):
+        raise ValueError(f"Dokument ma status {d['status']} i nie może być zatwierdzony"
+                         + (": kontrola znalazła pewny wyciek" if d["status"] == "do_przegladu" else ""))
+    with _baza() as c:
+        pods = dict(d["podsumowanie"], zatwierdzony_recznie=True)
+        c.execute("UPDATE dokument SET status = 'gotowe', podsumowanie = ? WHERE id = ?", (json.dumps(pods, ensure_ascii=False), id))
+    audyt("zatwierdzenie ręczne", d["sesja"], id)
+    return dokument(id)
 
 
 def _petla() -> None:

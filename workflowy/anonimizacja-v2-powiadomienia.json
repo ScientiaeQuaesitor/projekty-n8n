@@ -1,0 +1,71 @@
+{
+  "id": "ZmyoOyeFadfW8IPI",
+  "name": "Anonimizacja v2 « Powiadomienia",
+  "nodes": [
+    {
+      "id": "6c2f1a10-3b4d-4e5f-8a9b-0c1d2e3f4a01",
+      "name": "Błąd workflowu",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "6c2f1a10-3b4d-4e5f-8a9b-0c1d2e3f4a02",
+      "name": "Treść błędu",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [240, 0],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6c2f1a10-3b4d-4e5f-8a9b-0c1d2e3f4a11",
+              "name": "tekst",
+              "type": "string",
+              "value": "=Błąd w workflowie: {{ $json.workflow.name }}\nWęzeł: {{ $json.execution.lastNodeExecuted }}\nKomunikat: {{ ($json.execution.error.message || '').slice(0, 200) }}\nWykonanie: {{ $json.execution.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Bez danych wejściowych i treści dokumentu: tylko nazwa, węzeł, skrócony komunikat i odnośnik."
+    },
+    {
+      "id": "6c2f1a10-3b4d-4e5f-8a9b-0c1d2e3f4a03",
+      "name": "Powiadomienie z workflowu",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 220],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": { "values": [{ "name": "tekst", "type": "string" }] }
+      }
+    },
+    {
+      "id": "6c2f1a10-3b4d-4e5f-8a9b-0c1d2e3f4a04",
+      "name": "Wyślij na Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [500, 100],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "",
+        "text": "={{ $json.tekst }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "Do uzupełnienia w UI: credential Telegram (token bota) i Chat ID."
+    }
+  ],
+  "connections": {
+    "Błąd workflowu": { "main": [[{ "node": "Treść błędu", "type": "main", "index": 0 }]] },
+    "Treść błędu": { "main": [[{ "node": "Wyślij na Telegram", "type": "main", "index": 0 }]] },
+    "Powiadomienie z workflowu": { "main": [[{ "node": "Wyślij na Telegram", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

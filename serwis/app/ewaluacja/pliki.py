@@ -171,7 +171,15 @@ def main() -> None:
                 surowy = _norm(pliki.fdocx.tekst_surowy(wyjscie) if typ == "docx" else pliki.fpdf.tekst_surowy(wyjscie))
                 odczyt = _norm(pliki.otworz(typ, wyjscie).model.tekst)
                 wycieki = sorted({w.tekst for w in wzorce if len(w.tekst) >= 4 and _ile(w.tekst, surowy)})
-                zepsute = sorted({z.tekst for z in zostaw[dok] if _ile(z.tekst, odczyt) < _ile(z.tekst, _norm(model_tekst))})
+                if typ == "pdf":
+                    # PDF: tekst czytany w kolejności geometrycznej (sort=True). Kolejność strumienia pliku wynikowego
+                    # rozdziela wiersz, w którym wstawiono surogat („Z Lokalem” i „Mieszkalnym”), choć na stronie tekst
+                    # stoi w miejscu
+                    geo = lambda b: _norm(" ".join(s.get_text("text", sort=True) for s in fitz.open(stream=b, filetype="pdf")))
+                    geo_wy, geo_we = geo(wyjscie), geo(dane)
+                    zepsute = sorted({z.tekst for z in zostaw[dok] if _ile(z.tekst, geo_wy) < _ile(z.tekst, geo_we)})
+                else:
+                    zepsute = sorted({z.tekst for z in zostaw[dok] if _ile(z.tekst, odczyt) < _ile(z.tekst, _norm(model_tekst))})
                 kp = wynik["kontrola_pliku"]
                 try:
                     Document(io.BytesIO(wyjscie)) if typ == "docx" else fitz.open(stream=wyjscie, filetype="pdf").page_count

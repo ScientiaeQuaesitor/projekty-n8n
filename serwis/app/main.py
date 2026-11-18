@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 from pathlib import Path
 
@@ -166,7 +167,39 @@ def raport_dokumentu(id: str):
     p = zadania.sciezka(id, "raport")
     if not p:
         raise HTTPException(404, f"Raport dokumentu {id} nie jest gotowy")
-    return HTMLResponse(p.read_text(encoding="utf-8"))
+    html = p.read_text(encoding="utf-8")
+    d = zadania.dokument(id)
+    if d and d["status"] == "do_przegladu":
+        # Pasek decyzji na górze raportu: alarm niepewny można zatwierdzić, pewny wyciek blokuje plik na stałe
+        if d["podsumowanie"].get("mozna_zatwierdzic"):
+            pasek = (f'<form method="post" action="/dokumenty/{id}/zatwierdz?z_raportu=1" style="{STYL_PASKA}background:#fff4d6">'
+                     "<b>Dokument do przeglądu.</b> Kontrola znalazła tylko alarmy niepewne (punkty 1 i 5 raportu). "
+                     "Jeśli po przejrzeniu to fałszywy alarm, zatwierdź, a plik będzie do pobrania. "
+                     '<button type="submit" style="margin-left:8px;padding:4px 12px">Zatwierdzam</button></form>')
+        else:
+            pasek = (f'<div style="{STYL_PASKA}background:#fde2e2"><b>Plik zablokowany.</b> Kontrola znalazła pewny wyciek '
+                     "(oryginał albo numer z poprawną sumą kontrolną) lub pozostałość w pliku. Tego nie można zatwierdzić.</div>")
+        html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + pasek, html, count=1)
+    return HTMLResponse(html)
+
+
+STYL_PASKA = "font-family:system-ui,sans-serif;padding:10px 16px;margin:0 0 12px;border-bottom:1px solid #ccc;"
+
+
+@app.post("/dokumenty/{id}/zatwierdz")
+def zatwierdz_dokument(id: str, z_raportu: int = 0):
+    """Ręczne zatwierdzenie dokumentu do przeglądu, tylko przy alarmach niepewnych (zadania.alarm_pewny)."""
+    try:
+        d = zadania.zatwierdz(id)
+    except KeyError:
+        raise HTTPException(404, f"Nie ma dokumentu {id}")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    if z_raportu:
+        return HTMLResponse(f'<div style="{STYL_PASKA}background:#e3f6e3">Zatwierdzone. '
+                            f'<a href="/dokumenty/{id}/zanonimizowany">Pobierz plik</a> · '
+                            f'<a href="/dokumenty/{id}/raport">Raport</a></div>')
+    return d
 
 
 @app.post("/sesje/{id}/deanonimizuj-tekst")

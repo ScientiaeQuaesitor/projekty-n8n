@@ -1,6 +1,6 @@
 # Etap 2: pełny obieg
 
-Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 127 s (klasyfikacja: lista 12 s / 76 nazw, uzasadnienie 3 s / 76 nazw, pojedynczo 6 s / 53 nazw).
+Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). Podmiany: średnio na sesję, pozostałe liczniki: suma ze wszystkich sesji. Czas przebiegu: 104 s (klasyfikacja: lista 0 s / 75 nazw, uzasadnienie 0 s / 75 nazw, pojedynczo 0 s / 52 nazw).
 
 | dokument | podmiany | wycieki | zepsute | różnice po obiegu | niepewne | wycieki złapane przez kontrolę | fałszywe alarmy kontroli | niespójne | sesje z błędem |
 |---|---|---|---|---|---|---|---|---|---|
@@ -10,8 +10,8 @@ Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). P
 | 04_umowa_o_prace | 31 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 05_korespondencja_email | 36 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 06_protokol_zgromadzenia | 43 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 07_akt_notarialny | 48 | 0 | 200 | 0 | 0 | 0 | 0 | 0 | 200 |
-| **razem** | 276 | 0 | 200 | 0 | 0 | 0 | 0 | 0 | 200 |
+| 07_akt_notarialny | 47 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| **razem** | 275 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 ## 01_umowa_uslugi
 
@@ -51,7 +51,6 @@ Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). P
 
 ## 07_akt_notarialny
 
-1. ZEPSUTE: „Portalu Podsystemu Dostępu do Bazy Danych Ksiąg Wieczystych” (sesje: 0, 1, 2, 3, 4, …)
 1. BEZ PODMIANY: NAZWA „rozporządzenia Parlamentu Europejskiego i Rady”
 1. BEZ PODMIANY: NAZWA „rozporządzenie o ochronie danych osobowych”
 1. BEZ PODMIANY: NAZWA „UMOWA”
@@ -60,6 +59,7 @@ Klasyfikator kategorii: gemma4:e4b. Sesje na dokument: 200 (id wzorzec-0 …). P
 1. BEZ PODMIANY: NAZWA „Lokal Mieszkalny”
 1. BEZ PODMIANY: NAZWA „Kodeksu”
 1. BEZ PODMIANY: FIRMA „Specjalnej Strefy Ekonomicznej”
+1. BEZ PODMIANY: MIEJSCE „Portalu Podsystemu Dostępu do Bazy Danych Ksiąg Wieczystych”
 1. BEZ PODMIANY: NAZWA „Lokal Mieszkalny”
 1. BEZ PODMIANY: FIRMA „Specjalnej Strefy Ekonomicznej”
 1. BEZ PODMIANY: NAZWA „rozporządzenia Parlamentu Europejskiego i Rady Unii Europejskiej”

@@ -272,7 +272,7 @@
         "parameters": {
           "operation": "completion",
           "respondWith": "showText",
-          "responseText": "=<div style=\"font-family:system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#111\"><h2 style=\"color:#a40\">Dokument do przeglądu</h2><p>Kontrola znalazła możliwy wyciek albo niezgodność pliku z tekstem zanonimizowanym, więc plik nie jest wydawany. Nie wysyłaj go na zewnątrz.</p><p>Kontrola tekstu: {{ $json.dokument.podsumowanie.kontrola_tekstu }} (trafień {{ $json.dokument.podsumowanie.trafien_kontroli }}), kontrola pliku: {{ $json.dokument.podsumowanie.kontrola_pliku }} (różnic tekstu {{ $json.dokument.podsumowanie.roznic_tekstu_pliku }}, wycieków w pliku {{ $json.dokument.podsumowanie.wyciekow_w_pliku }}, pozostałości {{ $json.dokument.podsumowanie.pozostalosci }}).</p><p><a href=\"http://127.0.0.1:8090/dokumenty/{{ $json.dokument.id }}/raport\" target=\"_blank\">Raport porównawczy</a>: punkty 1 i 5 pokazują, co znalazła kontrola.</p><p>Sesja: <code>{{ $json.dokument.sesja }}</code>.</p></div>"
+          "responseText": "=<div style=\"font-family:system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#111\"><h2 style=\"color:#a40\">Dokument do przeglądu</h2><p>Kontrola znalazła możliwy wyciek albo niezgodność pliku z tekstem zanonimizowanym, więc plik nie jest wydawany. {{ $json.dokument.podsumowanie.mozna_zatwierdzic ? 'Alarm jest niepewny: po przejrzeniu raportu możesz go zatwierdzić przyciskiem na górze raportu, wtedy plik będzie do pobrania.' : 'Kontrola znalazła pewny wyciek: pliku nie można zatwierdzić.' }}</p><p>Kontrola tekstu: {{ $json.dokument.podsumowanie.kontrola_tekstu }} (trafień {{ $json.dokument.podsumowanie.trafien_kontroli }}), kontrola pliku: {{ $json.dokument.podsumowanie.kontrola_pliku }} (różnic tekstu {{ $json.dokument.podsumowanie.roznic_tekstu_pliku }}, wycieków w pliku {{ $json.dokument.podsumowanie.wyciekow_w_pliku }}, pozostałości {{ $json.dokument.podsumowanie.pozostalosci }}).</p><p><a href=\"http://127.0.0.1:8090/dokumenty/{{ $json.dokument.id }}/raport\" target=\"_blank\">Raport porównawczy</a>: punkty 1 i 5 pokazują, co znalazła kontrola.</p><p>Sesja: <code>{{ $json.dokument.sesja }}</code>.</p></div>"
         }
       },
       {
@@ -570,7 +570,8 @@
       }
     },
     "settings": {
-      "executionOrder": "v1"
+      "executionOrder": "v1",
+      "errorWorkflow": "ZmyoOyeFadfW8IPI"
     },
     "staticData": null,
     "meta": null,
@@ -593,7 +594,7 @@
           "updatedAt": "2026-11-17T17:46:36.207Z",
           "createdAt": "2026-11-17T17:44:35.296Z",
           "id": "U88VezJSNx06VaWM",
-          "name": "Twoje Imie <twoj.email@example.com>",
+          "name": "projekt osobisty",
           "type": "personal",
           "icon": null,
           "description": null,

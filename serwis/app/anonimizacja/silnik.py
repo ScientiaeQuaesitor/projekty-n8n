@@ -76,9 +76,24 @@ def _same_pospolite(fragment: str) -> bool:
     slowa = re.findall(r"\p{L}+", fragment)
     if len(fragment) < 4 or not slowa:
         return False
+    dlugie = [w for w in slowa if len(w) > 1]
     for w in slowa:
-        # Imię, nazwisko albo miejscowość znane słownikowi nigdy nie trafiają do oceny: „Martą”, „Michałowi”
-        if any(set(i.nazwy) & {"imię", "nazwisko", "nazwa_geograficzna"} for i in morf.analizuj(w) + morf.analizuj(w.capitalize())):
+        # Imię znane słownikowi nigdy nie trafia do oceny: „Martą”, „Michałowi”. Nazwisko albo nazwa geograficzna, która
+        # jest też zwykłym wyrazem („Danych”, „Ksiąg”, „Wieczystych”), przechodzi tylko w nazwie z co najmniej trzech słów
+        # i nie na początku: w „Portalu … Bazy Danych Ksiąg Wieczystych” to wyrazy pospolite, a „Kowal i Syn”
+        # i „Dąbrowski i Partnerzy” zaczynają się nazwiskiem i dalej są podmieniane. Słowo bez znaczenia pospolitego
+        # („Wrocław”) odpada niżej, bo małą literą nie ma go w słowniku.
+        nazwy_slowa = {n for i in morf.analizuj(w) + morf.analizuj(w.capitalize()) for n in i.nazwy}
+        if "imię" in nazwy_slowa:
+            return False
+        if nazwy_slowa & {"nazwisko", "nazwa_geograficzna"} and (
+                w == dlugie[0] or len(dlugie) < 3
+                # wyraz pospolity (lemat małą literą) w dopełniaczu, czyli człon łańcucha „Bazy Danych Ksiąg”, a nie
+                # nazwisko w mianowniku dopisane do opisu („Hurtownia Kowal Bis”, „Pracownia Ceramiki Wrocław”)
+                or not any(i.lemat[:1].islower() and "gen" in i.przypadki for i in morf.analizuj(w.lower()))
+                # na końcu nazwy tylko przymiotnik („Wieczystych”); rzeczownik na końcu to typowy dopisek właściciela
+                # („Biuro Rachunkowe Nowaka”, „Pracownia Ceramiki Kowala”)
+                or (w == dlugie[-1] and not any(i.klasa == "adj" and i.lemat[:1].islower() for i in morf.analizuj(w.lower())))):
             return False
         if not any(i.klasa != "ign" for i in morf.analizuj(w.lower())):
             return False
@@ -109,6 +124,52 @@ def _nazwa_ogolna(z: Zakres, encje: list[Encja]) -> bool:
     slowa = re.findall(r"\p{L}+", z.tekst)
     return (bool(slowa) and not re.search(r"\p{Lu}", z.tekst) and morf.rodzaj_slowa(slowa[0]) == "pospolite"
             and not any(osoby._imie_i(w.capitalize()) for w in slowa if len(w) >= 3))
+
+
+def _same_pospolite_wielka(z: Zakres) -> list[str] | None:
+    """Słowa zakresu, gdy jest to co najmniej dwa słowa pisane wielką literą, oddzielone odstępami, każde w słowniku
+    wyrazem pospolitym i żadne imieniem. Inaczej None."""
+    if z.typ == "OSOBA" or not re.fullmatch(r"\p{Lu}\p{Ll}*(?:\s+\p{Lu}\p{Ll}*)+", z.tekst):
+        return None
+    slowa = z.tekst.split()
+    if any(morf.rodzaj_slowa(w) != "pospolite" or osoby._imie_i(w) for w in slowa):
+        return None
+    return slowa
+
+
+def _termin_malymi(z: Zakres, tekst: str) -> bool:
+    """Termin umowny (zgłoszenie 2026-11-18): „Lokal Mieszkalny”, gdy ten sam dokument pisze te same wyrazy w dowolnej
+    formie małymi literami („lokalu mieszkalnego”). Nazwa własna nie występuje w tekście małymi literami, więc wersja
+    wielką literą to wyróżnienie pojęcia, a nie nazwa. Nie dotyczy nazw w cudzysłowie."""
+    slowa = _same_pospolite_wielka(z)
+    if not slowa or re.search(r"[„”\"]", tekst[max(0, z.start - 1):z.end + 1]):
+        return False
+    syg = _sygnatura(z.tekst)
+    wzor = r"(?<!\p{L})\p{Ll}+" + r"\s+\p{Ll}+" * (len(slowa) - 1) + r"(?!\p{L})"
+    return any(_pasuje(syg, _sygnatura(m.group())) for m in re.finditer(wzor, tekst, overlapped=True)
+               if _lematy(m.group().split()[0]) & syg[0])
+
+
+RX_DEFINICJA = re.compile(r"(?:\(\s*dalej|zwan\p{L}*\s+(?:dalej|w\s+dalszej\s+części(?:\s+umowy)?))\s*:?\s*[„\"]?$", re.I)
+
+
+def _termin_zdefiniowany(z: Zakres, tekst: str, zakresy: list[Zakres]) -> bool:
+    """Termin zdefiniowany w dokumencie („zwany dalej Lokalem”, „(dalej: Nieruchomość)”) złożony z wyrazów pospolitych.
+    Nie dotyczy skrótu nazwy podmiotu: „PPH „Orzeł” (dalej: „Orzeł”)” ma słowo z nazwy firmy lub osoby stojącej
+    tuż przed definicją, więc jest jej aliasem i podlega podmianie."""
+    if z.typ == "OSOBA" or not RX_DEFINICJA.search(tekst[max(0, z.start - 40):z.start]):
+        return False
+    slowa = re.findall(r"\p{L}+", z.tekst)
+    if not slowa or any(morf.rodzaj_slowa(w) != "pospolite" or osoby._imie_i(w) for w in slowa):
+        return False
+    lematy = set().union(*_sygnatura(z.tekst))
+    for y in zakresy:
+        if y is not z and y.end <= z.start and z.start - y.end <= 200 and y.typ in ("OSOBA", "FIRMA", "NAZWA"):
+            if any(_lematy(w) & lematy for w in re.findall(r"\p{L}+", y.tekst)):
+                return False
+    return True
+
+
 TYP_KATEGORII = {"OSOBA": "OSOBA", "FIRMA": "FIRMA", "PRODUKT": "NAZWA", "MIEJSCE": "MIEJSCE"}   # podmiana w całości
 
 
@@ -136,7 +197,13 @@ def kandydaci_klasyfikacji(tekst: str, zakresy: list[Zakres], encje: list[Encja]
     llm_syg = [_sygnatura(e.tekst) for e in (encje or []) if e.zrodlo == "llm"]
     z_gory: dict[str, str] = {}
     kandydaci: dict[str, str] = {}
+    # Termin umowny rozpoznany przy którymkolwiek wystąpieniu: pierwsze bywa w cudzysłowie definicji („Lokal Mieszkalny”),
+    # a kolejne wystąpienia tego samego tekstu nie są już oceniane osobno
+    terminy = {z.tekst for z in zakresy if z.typ in ("FIRMA", "NAZWA", "MIEJSCE")
+               and (_termin_malymi(z, tekst) or _termin_zdefiniowany(z, tekst, zakresy))}
     for z in zakresy:
+        if z.tekst in terminy and z.tekst not in z_gory and not (nazwy.RX_FORMA_KONIEC.search(z.tekst) or nazwy.RX_FORMA_SRODEK.search(z.tekst)):
+            z_gory[z.tekst] = "OGOLNA"
         if z.typ not in ("OSOBA", "FIRMA", "NAZWA", "MIEJSCE") or z.tekst in kandydaci or z.tekst in z_gory:
             continue
         if nazwy.RX_FORMA_KONIEC.search(z.tekst) or nazwy.RX_FORMA_SRODEK.search(z.tekst):
@@ -339,6 +406,9 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
 KAT_ORYGINALOW = ("IMIE", "NAZWISKO", "MIEJSCE", "ULICA", "FIRMA", "NAZWA")
 
 
+TYPY_Z_SUMA = {"PESEL", "NIP", "REGON", "IBAN", "DOWOD"}
+
+
 def kontrola_wycieku(sesja: Sesja, wyjscie: str) -> dict:
     """Bezpiecznik po podmianie, bez modelu. (1) Każdy oryginał z mapy sesji (klucze i formy zaobserwowane we wszystkich
     dokumentach sesji) szukany dosłownie w tekście wynikowym. (2) Ponowna detekcja numerów regexami: numer, który nie
@@ -368,7 +438,7 @@ def kontrola_wycieku(sesja: Sesja, wyjscie: str) -> dict:
         rx = re.compile(r"(?<![\p{L}\d])(?:" + "|".join(re.escape(o) for o in sorted(warianty, key=len, reverse=True)) + r")(?![\p{L}\d])")
         for m in rx.finditer(wyjscie):
             trafienia.append({"start": m.start(), "end": m.end(), "tekst": m.group(), "rodzaj": "oryginał z mapy sesji",
-                              "kat": warianty[m.group()]})
+                              "kat": warianty[m.group()], "pewny": True})
 
     chronione = [(m.start(), m.end()) for m in RX_CHRONIONE.finditer(wyjscie)] + numery_aktow(wyjscie)
     surogaty = ({s for (kat, _), (s, _) in sesja.mapa.items() if kat in ("NUMER", "NRDOM")}
@@ -380,7 +450,10 @@ def kontrola_wycieku(sesja: Sesja, wyjscie: str) -> dict:
             continue
         if any(t["start"] < e.end and t["end"] > e.start for t in trafienia):
             continue
-        trafienia.append({"start": e.start, "end": e.end, "tekst": e.tekst, "rodzaj": "numer bez podmiany", "kat": e.typ})
+        # Pewny wyciek: numer z poprawną sumą kontrolną. Pozostałe (telefon, sygnatura, numer z błędną sumą, adres e-mail
+        # przekłamany przez OCR) bywają fałszywym alarmem i użytkownik może je zatwierdzić po przejrzeniu raportu.
+        trafienia.append({"start": e.start, "end": e.end, "tekst": e.tekst, "rodzaj": "numer bez podmiany", "kat": e.typ,
+                          "pewny": bool(e.pewna and e.typ in TYPY_Z_SUMA)})
     trafienia.sort(key=lambda t: t["start"])
     return {"status": "do_przegladu" if trafienia else "ok", "trafienia": trafienia}
 
