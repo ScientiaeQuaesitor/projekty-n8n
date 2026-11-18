@@ -165,10 +165,14 @@ def xml_z_wzorca(tekst: str, wzorce) -> bytes:
             f'</ds:X509Data></ds:KeyInfo></ds:Signature></Dokument>').encode()
 
 
+# Kwoty w komórkach liczbowych o kształcie identyfikatora: NIP z poprawną sumą kontrolną, dziesięć i dziewięć cyfr
+KWOTY_JAK_NIP = ("5846254620", "1234563218", "123456785")
+
+
 def xlsx_z_wzorca(tekst: str, wzorce) -> bytes:
     """Skoroszyt z dwoma arkuszami: treść dokumentu wiersz po wierszu (teksty wspólne, jeden użyty dwa razy) i lista
-    osób z nagłówkiem, PESEL zapisanym jako liczba, kwotą i formułą z zapisaną wartością tekstową. Komentarz z nazwiskiem,
-    metadane z autorem."""
+    osób z nagłówkiem, PESEL zapisanym jako tekst, kwotą, dziesięciocyfrową kwotą o kształcie NIP (komórka liczbowa,
+    musi zostać bez zmian) i formułą z zapisaną wartością tekstową. Komentarz z nazwiskiem, metadane z autorem."""
     linie = [l for l in tekst.split("\n") if l.strip()]
     osoby = [w.tekst for w in wzorce if w.typ == "OSOBA"][:4] or ["Jan Testowy"]
     pesele = [w.tekst for w in wzorce if w.typ == "PESEL"]
@@ -183,8 +187,8 @@ def xlsx_z_wzorca(tekst: str, wzorce) -> bytes:
         r = j + 2
         pesel = re.sub(r"\D", "", pesele[j % len(pesele)]) if pesele else ""
         w2.append(f'<row r="{r}"><c r="A{r}" t="s"><v>{idx[o]}</v></c>'
-                  + (f'<c r="B{r}"><v>{pesel}</v></c>' if pesel else "")
-                  + f'<c r="C{r}"><v>{1250.5 * r}</v></c><c r="D{r}" t="str"><f>A{r}</f><v>{_esc(o)}</v></c>'
+                  + (f'<c r="B{r}" t="inlineStr"><is><t>{pesel}</t></is></c>' if pesel else "")
+                  + f'<c r="C{r}"><v>{1250.5 * r}</v></c><c r="H{r}"><v>{KWOTY_JAK_NIP[j % len(KWOTY_JAK_NIP)]}</v></c><c r="D{r}" t="str"><f>A{r}</f><v>{_esc(o)}</v></c>'
                   + f'<c r="E{r}"><f>C{r}-C{r + 1}</f><v>-1250.5</v></c>'
                   + f'<c r="F{r}" t="str"><f>"kontakt: "&amp;A{r}&amp;" ({_esc(firma).replace(chr(34), chr(34) * 2)})"</f>'
                   + f'<v>kontakt: {_esc(o)} ({_esc(firma)})</v></c></row>')
@@ -230,6 +234,21 @@ def xlsx_z_wzorca(tekst: str, wzorce) -> bytes:
         for n, t in czesci.items():
             z.writestr(n, t)
     return b.getvalue()
+
+
+def _liczby_xlsx(dane: bytes) -> dict:
+    """(arkusz, adres) -> wartość każdej komórki liczbowej."""
+    import zipfile
+    from lxml import etree
+    out = {}
+    with zipfile.ZipFile(io.BytesIO(dane)) as z:
+        for n in z.namelist():
+            if pliki.fxlsx.RX_ARKUSZ.fullmatch(n):
+                for c in etree.fromstring(z.read(n)).iter(f"{{{pliki.fxlsx.M}}}c"):
+                    v = c.find(f"{{{pliki.fxlsx.M}}}v")
+                    if c.get("t", "n") == "n" and v is not None:
+                        out[(n, c.get("r"))] = v.text
+    return out
 
 
 GENERATORY = {"docx": docx_z_wzorca, "pdf": pdf_z_wzorca, "xml": xml_z_wzorca, "xlsx": xlsx_z_wzorca}
@@ -278,6 +297,10 @@ def main() -> None:
                     zepsute = sorted({z.tekst for z in zostaw[dok] if _ile(z.tekst, geo_wy) < _ile(z.tekst, geo_we)})
                 else:
                     zepsute = sorted({z.tekst for z in zostaw[dok] if _ile(z.tekst, odczyt) < _ile(z.tekst, _norm(model_tekst))})
+                if typ == "xlsx":
+                    # Komórki liczbowe muszą zostać znak w znak (kwota o kształcie NIP też)
+                    przed, po = _liczby_xlsx(dane), _liczby_xlsx(wyjscie)
+                    zepsute += sorted(f"liczba {k}: {v}" for k, v in przed.items() if po.get(k) != v)
                 kp = wynik["kontrola_pliku"]
                 try:
                     Document(io.BytesIO(wyjscie)) if typ == "docx" else fitz.open(stream=wyjscie, filetype="pdf").page_count if typ == "pdf" else pliki.otworz(typ, wyjscie)

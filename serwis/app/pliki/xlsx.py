@@ -1,9 +1,10 @@
 """XLSX (PLAN 4.9.1): tekst komórek arkuszy, podmiana w miejscu na poziomie XML (lxml), formatowanie bez zmian.
 
 Kawałek to tekst komórki (element t w is, z przebiegami tekstu sformatowanego), wartość tekstowa wyniku formuły
-(t="str", wartość zapisana w pliku), liczba całkowita z co najmniej 9 cyframi (PESEL, NIP, REGON, telefon albo rachunek
-zapisany jako liczba) i tekst nagłówka lub stopki wydruku. Kwoty, daty i inne liczby nie trafiają do tekstu ciągłego,
-więc zostają bez zmian.
+(t="str", wartość zapisana w pliku) i tekst nagłówka lub stopki wydruku. Komórki liczbowe (kwoty, daty, każda liczba
+zapisana jako liczba) nie trafiają do tekstu ciągłego ani do kontroli wycieku i nigdy nie są zmieniane: liczby są
+danymi do analizy, a dziesięciocyfrowa kwota ma kształt NIP (decyzja użytkownika, PRZEKAZANIE 2.00.17). Identyfikator
+zapisany jako tekst (PESEL z zerem na początku, NIP z kreskami) jest anonimizowany jak w każdym dokumencie.
 
 Tekst ciągły: arkusz po arkuszu, wiersz po wierszu, komórki wiersza rozdzielone „ | ”. Nagłówki kolumn stoją w wierszu
 nad danymi, więc detekcja i klasyfikacja mają kontekst kolumny („Nazwisko | PESEL” nad „Kowalski | 85…”).
@@ -38,7 +39,6 @@ TYPY_RELACJI_USUWANE = ("/comments", "/threadedComment", "/person", "/drawing", 
                         "/pivotCacheRecords", "/printerSettings", "/oleObject", "/package", "/customXml",
                         "/custom-properties", "/thumbnail", "/sharedStrings", "/ctrlProp", "/hyperlink")
 RX_ARKUSZ = re.compile(r"xl/worksheets/sheet\d+\.xml")
-RX_LICZBA_ID = re.compile(r"\d{9,14}")   # liczba całkowita, która może być identyfikatorem
 # Tekst w cudzysłowie wewnątrz formuły („="Kowalski"”) i lista wartości walidacji („"Firma A,Firma B"”): jedyne miejsca
 # formuły, w których mogą stać dane; odwołania do komórek („B12-C12”) nie są ani danymi, ani numerami
 RX_LITERAL = re.compile(r'"((?:[^"]|"")*)"')
@@ -147,9 +147,9 @@ class Xlsx:
                         el = [e for e in c.iter(_m("t")) if e.text]
                         if el:
                             komorki.append(el)
-                    elif t in ("str", "n"):
+                    elif t == "str":
                         v = c.find("m:v", NS)
-                        if v is not None and v.text and (t == "str" or RX_LICZBA_ID.fullmatch(v.text)):
+                        if v is not None and v.text:
                             komorki.append([v])
                 if not komorki:
                     continue
@@ -195,15 +195,6 @@ class Xlsx:
             el.text = zastosuj(el.text, edycje)
             if etree.QName(el).localname == "t":
                 el.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-            else:
-                c = el.getparent()
-                if c.get("t", "n") == "n" and not re.fullmatch(r"-?\d+(?:\.\d+)?", el.text):
-                    # Surogat liczby nie jest liczbą („601 234 567”): komórka staje się tekstem
-                    tekst = el.text
-                    c.remove(el)
-                    c.set("t", "inlineStr")
-                    is_ = etree.SubElement(c, _m("is"))
-                    etree.SubElement(is_, _m("t")).text = tekst
 
     def zapisz(self) -> bytes:
         for n, x in self.xml.items():
@@ -217,7 +208,8 @@ class Xlsx:
 
 def tekst_surowy(dane: bytes) -> str:
     """Jak w DOCX: wszystkie części XML (komórki, nazwy arkuszy i zdefiniowane, metadane), część binarna zgłaszana.
-    Z formuł tylko teksty w cudzysłowie."""
+    Z formuł tylko teksty w cudzysłowie. Wartości komórek innych niż tekstowe (liczby, daty, wartości logiczne, błędy)
+    są pomijane: nie są zmieniane, więc kontrola nie może ich zgłaszać jako numer bez podmiany."""
     with zipfile.ZipFile(io.BytesIO(dane)) as z:
         pliki = {}
         for n in z.namelist():
@@ -227,6 +219,11 @@ def tekst_surowy(dane: bytes) -> str:
                 for el in x.iter(*(_m(f) for f in FORMULY)):
                     if el.text:
                         el.text = " ¦ ".join(mm.group(1) for mm in RX_LITERAL.finditer(el.text))
+                if RX_ARKUSZ.fullmatch(n):
+                    for c in x.iter(_m("c")):
+                        if c.get("t", "n") in ("n", "d", "b", "e"):
+                            for v in c.iterfind("m:v", NS):
+                                v.text = None
                 tresc = etree.tostring(x)
             pliki[n] = tresc
     buf = io.BytesIO()
