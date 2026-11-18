@@ -50,6 +50,7 @@ FORMULY = ("f", "formula", "formula1", "formula2")
 RX_OPIS = re.compile(r"(?<!\p{L})(PESEL|NIP|REGON|KRS|TELEFON|TEL)(?!\p{L})", re.I)
 RX_LICZBA_CALK = re.compile(r"\d+|\d(?:\.\d+)?E\+?\d+", re.I)
 MAKS_OPIS = 40
+DLUGOSC = {"PESEL": 11, "KRS": 10}   # stała długość numeru: zera na początku, które zapis liczbą gubi
 
 
 def _calkowita(v: str) -> str | None:
@@ -203,10 +204,11 @@ class Xlsx:
             pierwszy_wiersz = True
             opisane = opisane_liczby(self.xml[n])
             for v, typ in opisane.items():
-                # Zapis kanoniczny bez zmiany wartości: cyfry zamiast zapisu wykładniczego, PESEL z zerem na początku
-                # (osoba urodzona w latach 2000-2009 zapisana liczbą traci zero)
+                # Zapis kanoniczny bez zmiany wartości: cyfry zamiast zapisu wykładniczego i zera na początku, które
+                # liczba gubi (PESEL rocznika 2000-2009, KRS „0000123456” zapisany jako 123456). Bez zer surogat KRS
+                # zachowywał pierwsze cyfry oryginału
                 cyfry = _calkowita(v.text)
-                v.text = cyfry.zfill(11) if typ == "PESEL" and len(cyfry) == 10 else cyfry
+                v.text = cyfry.zfill(DLUGOSC.get(typ, 0))
             for row in self.xml[n].iter(_m("row")):
                 komorki = []
                 for c in row.iterfind("m:c", NS):
