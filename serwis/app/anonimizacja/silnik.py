@@ -244,6 +244,27 @@ def kandydaci_klasyfikacji(tekst: str, zakresy: list[Zakres], encje: list[Encja]
     return z_gory, kandydaci
 
 
+def _glosowanie_n8n(kandydaci: dict[str, str], pamiec: dict, model: str | None, zapisz_pamiec, czasy: dict | None) -> dict[str, str]:
+    """To samo głosowanie co niżej w kategorie_zakresow, wykonane przez workflow n8n (detekcja.llm.glosowanie_n8n).
+    Pamięć ocen zostaje tutaj: n8n dostaje oceny z pamięci, pyta model tylko o brakujące i zwraca nowe głosy."""
+    if not kandydaci:
+        return {}
+    t0 = time.time()
+    odciski = {w: detekcja.llm.odcisk_klasyfikacji(w, model) for w in detekcja.llm.WARIANTY_KLASYFIKACJI}
+    klucz = lambda w, f: f"{odciski[w]}|{f}|{kandydaci[f]}"
+    lista = [{"fragment": f, "kontekst": k, "opisowa": _budowa_opisowa(f),
+              "glosy": {w: pamiec[klucz(w, f)] for w in odciski if klucz(w, f) in pamiec}} for f, k in kandydaci.items()]
+    odp = detekcja.llm.glosowanie_n8n(lista, KATEGORIE_ZOSTAW, model)
+    for w, oceny in odp["nowe_glosy"].items():
+        pamiec.update({klucz(w, f): kat for f, kat in oceny.items() if f in kandydaci and w in odciski})
+    if zapisz_pamiec and any(odp["nowe_glosy"].values()):
+        zapisz_pamiec(pamiec)
+    if czasy is not None:
+        czasy["klasyfikacja_n8n"] = {"s": round(time.time() - t0, 1),
+                                     "zapytane": {w: len(o) for w, o in odp["nowe_glosy"].items()}}
+    return {f: k for f, k in odp["kategorie"].items() if f in kandydaci}
+
+
 def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = None, model: str | None = None,
                        encje: list[Encja] | None = None, zapisz_pamiec=None, czasy: dict | None = None) -> dict[str, str]:
     """Kategoria każdej wykrytej nazwy (kandydaci_klasyfikacji, potem głosowanie wariantów pytania).
@@ -252,6 +273,8 @@ def kategorie_zakresow(tekst: str, zakresy: list[Zakres], pamiec: dict | None = 
     zapisz_pamiec(pamiec) jest wołane po każdej paczce zapytań. czasy dostają czas i liczbę zapytanych nazw na wariant."""
     z_gory, kandydaci = kandydaci_klasyfikacji(tekst, zakresy, encje)
     pamiec = pamiec if pamiec is not None else {}
+    if detekcja.llm.GLOSOWANIE_URL:
+        return {**z_gory, **_glosowanie_n8n(kandydaci, pamiec, model, zapisz_pamiec, czasy)}
     glosy: dict[str, list[str]] = {f: [] for f in kandydaci}
     warianty = list(detekcja.llm.WARIANTY_KLASYFIKACJI)
     for nr, wariant in enumerate(warianty):

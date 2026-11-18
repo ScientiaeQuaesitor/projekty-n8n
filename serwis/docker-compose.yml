@@ -17,6 +17,9 @@ services:
       - DATA_DIR=/data
       - LLM_MODEL=gemma4:e4b                # detekcja encji
       - LLM_MODEL_KLASYFIKACJA=gemma4:e4b   # klasyfikacja kategorii nazw (głosowanie trzech wariantów pytania)
+      # Głosowanie klasyfikacji w workflowie n8n „Głosowanie klasyfikacji” (PRZEKAZANIE 2.00.19). Puste: serwis pyta
+      # Ollamę sam. Workflow musi być opublikowany, inaczej dokument kończy się błędem.
+      - GLOSOWANIE_URL=http://anonimizacja-n8n:5678/webhook/glosowanie
     volumes:
       - ./dane:/data
       # Kod i testy montowane z dysku: zmiana pliku nie wymaga przebudowy obrazu

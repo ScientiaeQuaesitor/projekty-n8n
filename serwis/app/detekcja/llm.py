@@ -114,13 +114,47 @@ def odcisk_klasyfikacji(wariant: str, model: str | None = None) -> str:
     return hashlib.sha1(tresc.encode("utf-8")).hexdigest()[:12]
 
 
+def _prompt_wariantu(wariant: str) -> str:
+    return PROMPT_KLASYFIKACJA if WARIANTY_KLASYFIKACJI[wariant]["uzasadnienie"] else PROMPT_KLASYFIKACJA.replace(ZDANIE_UZASADNIENIA, "")
+
+
+# Głosowanie w n8n (workflow „Anonimizacja v2 « Głosowanie klasyfikacji”, PRZEKAZANIE 2.00.19). Pusty adres: serwis
+# pyta Ollamę sam (klasyfikuj, kategorie_zakresow). Prompt, schemat, warianty i pamięć ocen zostają w serwisie, więc
+# odcisk ocen jest ten sam przy obu drogach; n8n dostaje je w zapytaniu i robi paczki, pytania do modelu, etap
+# trzeciego głosu i samo głosowanie.
+GLOSOWANIE_URL = os.environ.get("GLOSOWANIE_URL", "")
+
+
+def glosowanie_n8n(kandydaci: list[dict], kategorie_zostaw, model: str | None = None) -> dict:
+    """kandydaci: [{fragment, kontekst, opisowa, glosy: {wariant: kategoria albo None}}], glosy to oceny z pamięci
+    (wariant obecny w glosy nie jest pytany ponownie). Zwraca {kategorie: {fragment: kategoria albo SPORNE:…},
+    nowe_glosy: {wariant: {fragment: kategoria albo None}}}."""
+    zapytanie = {
+        "model": model or LLM_MODEL_KLASYFIKACJA, "opcje": OPCJE_KLASYFIKACJI,
+        "kategorie_zostaw": sorted(kategorie_zostaw),
+        "warianty": [{"nazwa": w, "paczka": u["paczka"], "prompt": _prompt_wariantu(w),
+                      "format": _schemat_klasyfikacji(u["uzasadnienie"])} for w, u in WARIANTY_KLASYFIKACJI.items()],
+        "kandydaci": kandydaci,
+    }
+    try:
+        r = httpx.post(GLOSOWANIE_URL, json=zapytanie, timeout=3600)
+    except httpx.HTTPError as e:
+        raise BladLLM(f"Głosowanie w n8n niedostępne: {type(e).__name__}: {e}") from e
+    if r.status_code != 200:
+        raise BladLLM(f"Głosowanie w n8n {r.status_code}: {r.text[:300]}")
+    odp = r.json()
+    if not isinstance(odp.get("kategorie"), dict) or not isinstance(odp.get("nowe_glosy"), dict):
+        raise BladLLM(f"Głosowanie w n8n zwróciło niepełną odpowiedź: {r.text[:300]}")
+    return odp
+
+
 def klasyfikuj(fragmenty_z_kontekstem: list[tuple[str, str]], model: str | None = None, wariant: str = "lista",
                po_paczce=None) -> dict[str, str]:
     """Kategoria każdego fragmentu według LLM, jednym z wariantów pytania. Fragment bez oceny nie trafia do wyniku.
     po_paczce(paczka, oceny_paczki) jest wołane po każdym zapytaniu, żeby przerwany przebieg nie tracił ocen."""
     import json
     ust = WARIANTY_KLASYFIKACJI[wariant]
-    prompt = PROMPT_KLASYFIKACJA if ust["uzasadnienie"] else PROMPT_KLASYFIKACJA.replace(ZDANIE_UZASADNIENIA, "")
+    prompt = _prompt_wariantu(wariant)
     wynik: dict[str, str] = {}
     for i in range(0, len(fragmenty_z_kontekstem), ust["paczka"]):
         paczka = fragmenty_z_kontekstem[i:i + ust["paczka"]]
