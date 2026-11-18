@@ -1,21 +1,12 @@
-# Prawdziwe dane: nigdy w repozytorium
-serwis/testy/prawdziwe/
-serwis/dane/
-n8n/
-# Dowiązanie do training-mateusz/shared/anonimizacja (dokumenty v1)
-dokumenty
-
-# Sekrety
+# Sekrety i ustawienia lokalne
+.mcp.json
+.claude/
 .env
 *.env
 
-# Pamięć podręczna pomiarów (odtwarzalna, duża)
-serwis/testy/wyniki/cache_*.json
+# Instrukcje dla Claude Code (lokalne)
+CLAUDE.md
 
 # Python
 __pycache__/
 *.pyc
-
-# Pliki wzorcowe DOCX i PDF generowane przez app.ewaluacja.pliki (odtwarzalne z wzorców)
-serwis/testy/wyniki/pliki/
-serwis/testy/wyniki/skany/
