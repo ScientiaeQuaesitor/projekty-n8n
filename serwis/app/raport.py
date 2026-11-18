@@ -161,6 +161,20 @@ def zbuduj(tytul: str, oryginal: str, wynik: dict, ocr: dict | None = None, obra
                           "<p>Tekst odczytany ponownie z pliku zgadza się z wersją zanonimizowaną, w całym pliku (także metadanych) "
                           "nie ma oryginałów z mapy sesji ani niepodmienionych numerów, nie zostały obrazy ani załączniki.</p>")
                        + f"<p>Usunięte z pliku: {usuniete}.</p>")
+    # 6. Załączniki osadzone w pliku (XML): każdy ma własny raport w ramce, bo ma własny tekst i własne podmiany
+    sekcja_zal = ""
+    for i, z in enumerate(wynik.get("zalaczniki") or [], 1):
+        if z.get("usuniety"):
+            sekcja_zal += f"<p>Załącznik {i} ({html.escape(z['rodzaj'])}): usunięty z pliku ({html.escape(z.get('powod', ''))}).</p>"
+            continue
+        wz = z["wynik"]
+        ok = wz["kontrola"]["status"] == "ok" and wz["kontrola_pliku"]["status"] == "ok"
+        wewn = zbuduj(f"Załącznik {i} ({z['rodzaj']})", wz["tekst_oryginalu"], wz)
+        sekcja_zal += (f'<details><summary><b>Załącznik {i} ({html.escape(z["rodzaj"])})</b>: podmian {len(wz["podmiany"])}, '
+                       f'kontrola <span class="status {"ok" if ok else "zle"}">{"ok" if ok else "do przeglądu"}</span></summary>'
+                       f'<iframe srcdoc="{html.escape(wewn)}" style="width:100%;height:80vh;border:1px solid #bbb"></iframe></details>')
+    if sekcja_zal:
+        sekcja_zal = "<h2>6. Załączniki osadzone w pliku</h2>" + sekcja_zal
     naglowek_oryginalu = "Tekst odczytany ze skanu (OCR, może zawierać błędy odczytu)" if ocr else "Oryginał"
     sekcja_obrazy = ""
     if obrazy:
@@ -202,6 +216,7 @@ const e=document.getElementById(location.hash.slice(1));if(e)e.classList.add("ce
 {f"<table><tr><th>fragment</th><th>typ</th><th>powód</th></tr>{''.join(bez)}</table>" if bez else "<p>Brak.</p>"}
 {sekcja_ocr}
 {sekcja_plik}
+{sekcja_zal}
 </div>
 {sekcja_obrazy}
 <p class="leg">{legenda}</p>

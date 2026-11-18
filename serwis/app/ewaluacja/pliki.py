@@ -1,6 +1,6 @@
 """Zestaw wzorcowy plikowy (PLAN 4.6) i pomiar anonimizacji plików (PLAN 4.8).
 
-Uruchomienie w kontenerze:  python -m app.ewaluacja.pliki [--sesje 3] [--typ docx|pdf]
+Uruchomienie w kontenerze:  python -m app.ewaluacja.pliki [--sesje 3] [--typ docx,pdf,xml,xlsx]
 
 Z każdego dokumentu wzorcowego (dane fikcyjne) powstają DOCX i PDF z trudnymi miejscami:
 DOCX: każdy akapit pocięty na przebiegi co kilka znaków (nazwy rozbite na runy), jeden akapit w tabeli, przedostatni
@@ -137,10 +137,108 @@ def _ile(fragment: str, gdzie: str) -> int:
     return len(re.findall(r"(?<![\p{L}\d])" + re.escape(_norm(fragment)) + r"(?![\p{L}\d])", gdzie))
 
 
+def _esc(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def xml_z_wzorca(tekst: str, wzorce) -> bytes:
+    """Koperta w stylu e-sprawozdania: akapity jako elementy, osoba i firma w elementach z nazwą pola, adres w atrybucie,
+    komentarz z nazwiskiem, załącznik PDF (ten sam dokument) w base64 i podpis XAdES z „certyfikatem” osoby."""
+    import base64
+    osoba = _pierwszy(wzorce, "OSOBA", "Jan Testowy")
+    imie, _, nazwisko = osoba.partition(" ")
+    pesel = _pierwszy(wzorce, "PESEL")
+    akapity = "".join(f"<Akapit nr=\"{i + 1}\">{_esc(l)}</Akapit>" for i, l in enumerate(tekst.split("\n")) if l.strip())
+    zal = base64.b64encode(pdf_z_wzorca(tekst, wzorce)).decode()
+    zal = "\n".join(zal[i:i + 76] for i in range(0, len(zal), 76))
+    return (f'<?xml version="1.0" encoding="UTF-8"?>\n'
+            f'<Dokument xmlns="http://example.test/wzor/1" xmlns:ds="http://www.w3.org/2000/09/xmldsig#">'
+            f'<!-- przygotował {_esc(osoba)} -->'
+            f'<Naglowek><NazwaFirmy>{_esc(_pierwszy(wzorce, "FIRMA", "Firma Testowa sp. z o.o."))}</NazwaFirmy>'
+            f'<Adres opis="{_esc(_pierwszy(wzorce, "ADRES", "ul. Testowa 1"))}"/></Naglowek>'
+            f'<OsobaSporzadzajaca><Imie>{_esc(imie)}</Imie><Nazwisko>{_esc(nazwisko)}</Nazwisko>'
+            f'<PESEL>{_esc(pesel)}</PESEL></OsobaSporzadzajaca>'
+            f'<Tresc>{akapity}</Tresc>'
+            f'<Zalacznik><Nazwa>informacja.pdf</Nazwa><Zawartosc>{zal}</Zawartosc></Zalacznik>'
+            f'<ds:Signature><ds:SignatureValue>QUJD</ds:SignatureValue><ds:KeyInfo><ds:X509Data>'
+            f'<ds:X509SubjectName>CN={_esc(osoba)}, SERIALNUMBER=PNOPL-{_esc(pesel)}</ds:X509SubjectName>'
+            f'</ds:X509Data></ds:KeyInfo></ds:Signature></Dokument>').encode()
+
+
+def xlsx_z_wzorca(tekst: str, wzorce) -> bytes:
+    """Skoroszyt z dwoma arkuszami: treść dokumentu wiersz po wierszu (teksty wspólne, jeden użyty dwa razy) i lista
+    osób z nagłówkiem, PESEL zapisanym jako liczba, kwotą i formułą z zapisaną wartością tekstową. Komentarz z nazwiskiem,
+    metadane z autorem."""
+    linie = [l for l in tekst.split("\n") if l.strip()]
+    osoby = [w.tekst for w in wzorce if w.typ == "OSOBA"][:4] or ["Jan Testowy"]
+    pesele = [w.tekst for w in wzorce if w.typ == "PESEL"]
+    firma = re.sub(r"\s*,.*", "", _pierwszy(wzorce, "FIRMA", "Firma Testowa"))
+    wspolne = linie + ["Imię i nazwisko", "PESEL", "Kwota"] + osoby
+    idx = {t: i for i, t in reversed(list(enumerate(wspolne)))}
+    sst = "".join(f"<si><t xml:space=\"preserve\">{_esc(t)}</t></si>" for t in wspolne)
+    w1 = "".join(f'<row r="{i + 1}"><c r="A{i + 1}" t="s"><v>{idx[l]}</v></c></row>' for i, l in enumerate(linie + linie[:1]))
+    w2 = ['<row r="1"><c r="A1" t="s"><v>{}</v></c><c r="B1" t="s"><v>{}</v></c><c r="C1" t="s"><v>{}</v></c></row>'.format(
+        idx["Imię i nazwisko"], idx["PESEL"], idx["Kwota"])]
+    for j, o in enumerate(osoby):
+        r = j + 2
+        pesel = re.sub(r"\D", "", pesele[j % len(pesele)]) if pesele else ""
+        w2.append(f'<row r="{r}"><c r="A{r}" t="s"><v>{idx[o]}</v></c>'
+                  + (f'<c r="B{r}"><v>{pesel}</v></c>' if pesel else "")
+                  + f'<c r="C{r}"><v>{1250.5 * r}</v></c><c r="D{r}" t="str"><f>A{r}</f><v>{_esc(o)}</v></c>'
+                  + f'<c r="E{r}"><f>C{r}-C{r + 1}</f><v>-1250.5</v></c>'
+                  + f'<c r="F{r}" t="str"><f>"kontakt: "&amp;A{r}&amp;" ({_esc(firma).replace(chr(34), chr(34) * 2)})"</f>'
+                  + f'<v>kontakt: {_esc(o)} ({_esc(firma)})</v></c></row>')
+    # Lista rozwijana (walidacja danych) z nazwą firmy: Excel trzyma ją w formule, poza komórkami
+    walidacja = (f'<dataValidations count="1"><dataValidation type="list" sqref="G2:G9"><formula1>"{_esc(firma).replace(chr(34), chr(34) * 2)},inna"'
+                 f'</formula1></dataValidation></dataValidations>')
+    arkusz = lambda wiersze, extra="": (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="{pliki.fxlsx.M}" '
+                                        f'xmlns:r="{pliki.fxlsx.R}"><sheetData>{wiersze}</sheetData>{extra}</worksheet>')
+    ct = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+          '<Default Extension="xml" ContentType="application/xml"/>'
+          '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+          '<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+          '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>'
+          '<Override PartName="/xl/comments1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/>'
+          '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>')
+    rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    czesci = {
+        "[Content_Types].xml": ct,
+        "_rels/.rels": f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                       f'<Relationship Id="rId1" Type="{rel}/officeDocument" Target="xl/workbook.xml"/>'
+                       f'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>',
+        "docProps/core.xml": f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
+                             f'xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>{_esc(osoby[0])}</dc:creator></cp:coreProperties>',
+        "xl/workbook.xml": f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="{pliki.fxlsx.M}" xmlns:r="{rel}"><sheets>'
+                           f'<sheet name="Treść" sheetId="1" r:id="rId1"/><sheet name="Lista" sheetId="2" r:id="rId2"/></sheets></workbook>',
+        "xl/_rels/workbook.xml.rels": f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                                      f'<Relationship Id="rId1" Type="{rel}/worksheet" Target="worksheets/sheet1.xml"/>'
+                                      f'<Relationship Id="rId2" Type="{rel}/worksheet" Target="worksheets/sheet2.xml"/>'
+                                      f'<Relationship Id="rId3" Type="{rel}/sharedStrings" Target="sharedStrings.xml"/></Relationships>',
+        "xl/sharedStrings.xml": f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="{pliki.fxlsx.M}">{sst}</sst>',
+        "xl/worksheets/sheet1.xml": arkusz(w1),
+        "xl/worksheets/sheet2.xml": arkusz("".join(w2), walidacja),
+        "xl/worksheets/_rels/sheet2.xml.rels": f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                                               f'<Relationship Id="rId1" Type="{rel}/comments" Target="../comments1.xml"/></Relationships>',
+        "xl/comments1.xml": f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><comments xmlns="{pliki.fxlsx.M}"><authors><author>{_esc(osoby[0])}</author></authors>'
+                            f'<commentList><comment ref="A2" authorId="0"><text><t>Sprawdzić u {_esc(osoby[-1])}</t></text></comment></commentList></comments>',
+    }
+    b = io.BytesIO()
+    import zipfile
+    with zipfile.ZipFile(b, "w", zipfile.ZIP_DEFLATED) as z:
+        for n, t in czesci.items():
+            z.writestr(n, t)
+    return b.getvalue()
+
+
+GENERATORY = {"docx": docx_z_wzorca, "pdf": pdf_z_wzorca, "xml": xml_z_wzorca, "xlsx": xlsx_z_wzorca}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sesje", type=int, default=3)
-    ap.add_argument("--typ", default="docx,pdf")
+    ap.add_argument("--typ", default="docx,pdf,xml,xlsx")
     ap.add_argument("--llm", default=llm.LLM_MODEL)
     ap.add_argument("--klasyfikator", default=llm.LLM_MODEL_KLASYFIKACJA)
     args = ap.parse_args()
@@ -156,7 +254,7 @@ def main() -> None:
     szczegoly, suma = [], [0] * 5
     for typ in args.typ.split(","):
         for dok, (tekst, wzorce) in dokumenty.items():
-            dane = docx_z_wzorca(tekst, wzorce) if typ == "docx" else pdf_z_wzorca(tekst, wzorce)
+            dane = GENERATORY[typ](tekst, wzorce)
             nazwa = f"{dok}.{typ}"
             (KATALOG / nazwa).write_bytes(dane)
             model_tekst = pliki.otworz(typ, dane).model.tekst
@@ -168,7 +266,7 @@ def main() -> None:
                                                        model_klasyfikacji=args.klasyfikator, zapisz_pamiec=zapisz_pamiec)
                 if nr == 0:
                     (KATALOG / f"{dok}.anon.{typ}").write_bytes(wyjscie)
-                surowy = _norm(pliki.fdocx.tekst_surowy(wyjscie) if typ == "docx" else pliki.fpdf.tekst_surowy(wyjscie))
+                surowy = _norm((pliki.MODULY.get(typ) or pliki.fpdf).tekst_surowy(wyjscie))
                 odczyt = _norm(pliki.otworz(typ, wyjscie).model.tekst)
                 wycieki = sorted({w.tekst for w in wzorce if len(w.tekst) >= 4 and _ile(w.tekst, surowy)})
                 if typ == "pdf":
@@ -182,7 +280,7 @@ def main() -> None:
                     zepsute = sorted({z.tekst for z in zostaw[dok] if _ile(z.tekst, odczyt) < _ile(z.tekst, _norm(model_tekst))})
                 kp = wynik["kontrola_pliku"]
                 try:
-                    Document(io.BytesIO(wyjscie)) if typ == "docx" else fitz.open(stream=wyjscie, filetype="pdf").page_count
+                    Document(io.BytesIO(wyjscie)) if typ == "docx" else fitz.open(stream=wyjscie, filetype="pdf").page_count if typ == "pdf" else pliki.otworz(typ, wyjscie)
                 except Exception as e:   # plik, którego biblioteka nie otwiera, jest błędem pomiaru
                     otwiera = False
                     bledy.setdefault(f"NIE OTWIERA SIĘ: {type(e).__name__}: {e}", []).append(nr)

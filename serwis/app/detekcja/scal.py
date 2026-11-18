@@ -219,8 +219,19 @@ def _malo_cyfr(fragment: str) -> bool:
     return len(re.findall(r"\d", fragment)) < 5 and "/" not in fragment and not re.search(r"\d-\d", fragment)
 
 
+def ulamki_udzialu(tekst: str) -> list[tuple[int, int]]:
+    """Ułamek po słowie „udział” („udział wynoszący 95/10000”) to wielkość, nie identyfikator: chroniony także przed
+    detektorem LLM, który bez zdania wokół (komórka arkusza, element XML) brał go za numer."""
+    out = []
+    for m in re.finditer(r"(?<![\d/])\d{1,7}/\d{1,7}(?![\d/])", tekst):
+        przed = re.split(r"[.;]\s|\n", tekst[max(0, m.start() - 110):m.start()])[-1]
+        if re.search(r"udzia[łl]\p{L}*[^,]{0,25}$", przed):
+            out.append((m.start(), m.end()))
+    return out
+
+
 def scal(tekst: str, encje: list[Encja]) -> list[Zakres]:
-    chronione = [(m.start(), m.end()) for m in RX_CHRONIONE.finditer(tekst)] + numery_aktow(tekst)
+    chronione = [(m.start(), m.end()) for m in RX_CHRONIONE.finditer(tekst)] + numery_aktow(tekst) + ulamki_udzialu(tekst)
     terminy = terminy_zdefiniowane(tekst)
 
     def chroniony(a: int, b: int) -> bool:
@@ -239,12 +250,16 @@ def scal(tekst: str, encje: list[Encja]) -> list[Zakres]:
             pos = a
             # Zakres modelu nie przechodzi przez koniec wiersza ani etykietę: „Polski)\nNieobecni: Ola Wiśniewska”
             # Osoby dodatkowo rozdzielane na spójniku: „Teresy i Henryka Borkowskich” to dwie osoby
-            podzial = r"(\s*\n\s*|[:;]\s|,\s|\s+(?:i|oraz|lub|albo)\s+)" if typ == "OSOBA" else r"(\s*\n\s*|[:;]\s)"
+            # „ | ” to granica komórek arkusza (pliki.xlsx): komórki to osobne wartości, jak wiersze
+            podzial = r"(\s*\n\s*|[:;]\s|[ \t]*\|[ \t]*|,\s|\s+(?:i|oraz|lub|albo)\s+)" if typ == "OSOBA" else r"(\s*\n\s*|[:;]\s|[ \t]*\|[ \t]*)"
             for czesc in re.split(podzial, tekst[a:b]):
                 if czesc.strip():
                     x, y = _przytnij(tekst, pos, pos + len(czesc))
                     pos += len(czesc)
-                    if len(re.findall(r"[\p{L}\d]", tekst[x:y])) < 3 or _ogolny(tekst[x:y]) or _pospolite(tekst, x, y, typ):
+                    # Nazwa znana z wcześniejszego dokumentu sesji nie przechodzi filtrów słów pospolitych: tam już
+                    # oceniono, że to nazwa („Aptekarz”)
+                    if zrodlo != "sesja" and (len(re.findall(r"[\p{L}\d]", tekst[x:y])) < 3 or _ogolny(tekst[x:y])
+                                              or _pospolite(tekst, x, y, typ)):
                         continue
                     if chroniony(x, y) or _to_termin(tekst[x:y], terminy) or (typ == "INNE" and (_liczba_zwykla(tekst[x:y]) or _malo_cyfr(tekst[x:y]))):
                         continue

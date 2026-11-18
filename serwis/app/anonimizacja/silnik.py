@@ -17,6 +17,7 @@ class Kontekst:
     """Dane jednego dokumentu potrzebne modułom: słowa tekstu (kolizje surogatów), lematy nazw spoza słownika, aliasy firm."""
 
     def __init__(self, sesja: Sesja, tekst: str, zakresy: list[Zakres]):
+        self.sesja = sesja
         self.tekst_l = tekst.lower()
         self.slowa = set(re.findall(r"\p{L}+", self.tekst_l))
         self.analizy: dict[tuple[str, str], tuple[dict, str]] = {}
@@ -98,6 +99,23 @@ def _same_pospolite(fragment: str) -> bool:
         if not any(i.klasa != "ign" for i in morf.analizuj(w.lower())):
             return False
     return True
+
+
+def _alias(ctx: "Kontekst", fragment: str) -> bool:
+    """Skrót podmienianej nazwy firmy lub produktu z tego dokumentu albo z mapy sesji („Aptekarz” przy „Aptekarz
+    Polski”): podmieniany zawsze, choć sam jest zwykłym słowem, bo zostawiony zdradza pełną nazwę."""
+    # Tylko nazwy już podmienione (mapa sesji: wcześniejsze dokumenty i wcześniejsze miejsca tego dokumentu), nie
+    # wszystkie wykryte: „Lokal” przy zostawionym „Lokalu Mieszkalnym” zostaje. Kategoria skrótu bywa inna niż pełnej
+    # nazwy (NAZWA przy FIRMIE), więc porównanie obejmuje obie.
+    dlugie = {k for kat in ("FIRMA", "NAZWA") for k, _, _ in ctx.sesja.wpisy(kat)}
+    for kat in ("FIRMA", "NAZWA"):
+        an = ctx.analizy_zakresu(kat, fragment)
+        if not an:
+            continue
+        kt = an["klucz"].split(" ")
+        if any(len(d.split(" ")) > len(kt) and nazwy.poczatek_nazwy(kt, d.split(" "), set()) for d in dlugie):
+            return True
+    return False
 
 
 def _sygnatura(fragment: str) -> list:
@@ -199,13 +217,15 @@ def kandydaci_klasyfikacji(tekst: str, zakresy: list[Zakres], encje: list[Encja]
     kandydaci: dict[str, str] = {}
     # Termin umowny rozpoznany przy którymkolwiek wystąpieniu: pierwsze bywa w cudzysłowie definicji („Lokal Mieszkalny”),
     # a kolejne wystąpienia tego samego tekstu nie są już oceniane osobno
-    terminy = {z.tekst for z in zakresy if z.typ in ("FIRMA", "NAZWA", "MIEJSCE")
+    terminy = {z.tekst for z in zakresy if z.typ in ("FIRMA", "NAZWA", "MIEJSCE") and "sesja" not in z.zrodla
                and (_termin_malymi(z, tekst) or _termin_zdefiniowany(z, tekst, zakresy))}
     for z in zakresy:
         if z.tekst in terminy and z.tekst not in z_gory and not (nazwy.RX_FORMA_KONIEC.search(z.tekst) or nazwy.RX_FORMA_SRODEK.search(z.tekst)):
             z_gory[z.tekst] = "OGOLNA"
         if z.typ not in ("OSOBA", "FIRMA", "NAZWA", "MIEJSCE") or z.tekst in kandydaci or z.tekst in z_gory:
             continue
+        if "sesja" in z.zrodla:
+            continue   # nazwa podmieniona we wcześniejszym dokumencie sesji: podmiana bez ponownej oceny
         if nazwy.RX_FORMA_KONIEC.search(z.tekst) or nazwy.RX_FORMA_SRODEK.search(z.tekst):
             continue
         if _nazwa_ogolna(z, encje or []):
@@ -307,6 +327,25 @@ def _dodaj(tekst: str, out: list, podmiany: list, pos: int, z, typ: str, nowe: s
     return z.end
 
 
+def encje_z_sesji(sesja: Sesja, tekst: str) -> list[Encja]:
+    """Firmy i nazwy, które sesja już zna z wcześniejszego dokumentu (formy zaobserwowane i klucz pisany wielką literą),
+    jako encje pewne. Bez tego kolejny dokument tej samej sesji (załącznik w XML, druga część sprawy) mógł inaczej
+    sklasyfikować tę samą nazwę („Aptekarz” podmieniony w kopercie, zostawiony w załączniku), a bezpiecznik i tak
+    zgłasza każdy oryginał z mapy sesji. Osoby i miejscowości wykrywa NER bez tej pomocy."""
+    formy: dict[str, str] = {}
+    for (kat, klucz, _), forma in sesja.formy.items():
+        if kat in ("FIRMA", "NAZWA"):
+            formy.setdefault(forma, kat)
+    for (kat, klucz), _ in sesja.mapa.items():
+        if kat in ("FIRMA", "NAZWA") and klucz[:1].isalpha():
+            formy.setdefault(klucz[:1].upper() + klucz[1:], kat)
+    formy = {f: k for f, k in formy.items() if len(re.sub(r"\W", "", f)) >= 3}
+    if not formy:
+        return []
+    rx = re.compile(r"(?<![\p{L}\d])(?:" + "|".join(re.escape(f) for f in sorted(formy, key=len, reverse=True)) + r")(?![\p{L}\d])")
+    return [Encja(m.start(), m.end(), formy[m.group()], "sesja", m.group(), True) for m in rx.finditer(tekst)]
+
+
 def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detektory: list[str] | None = None,
                weryfikuj: bool = True, pamiec: dict | None = None, model_klasyfikacji: str | None = None,
                zapisz_pamiec=None, czasy: dict | None = None) -> dict:
@@ -316,6 +355,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
     if encje is None:
         encje = detekcja.wykryj(tekst, detektory or DOMYSLNE_DETEKTORY)
         czasy["detekcja"] = round(time.time() - t0, 1)
+    encje = list(encje) + encje_z_sesji(sesja, tekst)
     t0 = time.time()
     zakresy = scal(tekst, encje)
     czasy["scalanie"] = round(time.time() - t0, 1)
@@ -357,7 +397,7 @@ def anonimizuj(sesja: Sesja, tekst: str, encje: list[Encja] | None = None, detek
                 if nowe and nowe != z.tekst:
                     pos = _dodaj(tekst, out, podmiany, pos, z, "OPISOWA", nowe)
                     continue
-                if ((nowe is None or nowe == z.tekst) and _same_pospolite(z.tekst)
+                if ((nowe is None or nowe == z.tekst) and _same_pospolite(z.tekst) and not _alias(ctx, z.tekst)
                         and not re.search(r"[„”\"]", tekst[max(0, z.start - 1):z.end + 1])):
                     # Głosy podzielone, a każde słowo nazwy jest w słowniku wyłącznie wyrazem pospolitym, bez znaczenia
                     # imienia, nazwiska ani nazwy geograficznej, i nie stoi w cudzysłowie: „Specjalna Strefa Ekonomiczna”.

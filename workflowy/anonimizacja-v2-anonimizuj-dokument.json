@@ -20,16 +20,16 @@
         "webhookId": "8a7b6c5d-4e3f-4a2b-9c1d-0e1f2a3b4c5d",
         "parameters": {
           "formTitle": "Anonimizuj dokument",
-          "formDescription": "Plik DOCX albo PDF. Wynik: plik z danymi zastąpionymi surogatami i lokalny raport porównawczy. Puste pole sesji zakłada nową sesję; podaj istniejącą, jeśli dokument należy do tej samej sprawy (wspólna mapa surogatów).",
+          "formDescription": "Plik DOCX, PDF, XLSX albo XML (podpis elektroniczny XML zostanie usunięty, bo po zmianie treści traci ważność). Wynik: plik z danymi zastąpionymi surogatami i lokalny raport porównawczy. Puste pole sesji zakłada nową sesję; podaj istniejącą, jeśli dokument należy do tej samej sprawy (wspólna mapa surogatów).",
           "formFields": {
             "values": [
               {
-                "fieldLabel": "Plik (DOCX lub PDF)",
+                "fieldLabel": "Plik (DOCX, PDF, XLSX lub XML)",
                 "fieldName": "plik",
                 "fieldType": "file",
                 "requiredField": true,
                 "multipleFiles": false,
-                "acceptFileTypes": ".pdf,.docx"
+                "acceptFileTypes": ".pdf,.docx,.xlsx,.xml"
               },
               {
                 "fieldLabel": "Identyfikator sesji (opcjonalnie)",
@@ -393,7 +393,7 @@
           "operation": "completion",
           "respondWith": "text",
           "completionTitle": "Nieobsługiwany plik",
-          "completionMessage": "Serwis przyjmuje DOCX i PDF. Plik nie został przetworzony.",
+          "completionMessage": "Serwis przyjmuje DOCX, PDF, XLSX i XML. Plik nie został przetworzony.",
           "options": {}
         }
       },

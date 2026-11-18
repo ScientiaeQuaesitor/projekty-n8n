@@ -328,8 +328,14 @@ def _surogat(sesja: Sesja, kat: str, an: dict, przyp: str, ctx) -> tuple[str, di
     dane = {"grupa": an["grupa"], "liczba": liczba, "rodzaj": rodzaj, "reszta": an["reszta"], "przed": an["przed"], "sufiks": None, "alias": None}
     dluzszy = ctx.aliasy.get((kat, an["klucz"]))
     if dluzszy:
-        an2, przyp2 = ctx.analizy[(kat, dluzszy)]
-        baza, _ = _surogat(sesja, kat, an2, przyp2, ctx)
+        # Pełna nazwa bywa znana tylko z wcześniejszego dokumentu sesji (skrót „TFI Sokół” w załączniku, pełna nazwa
+        # w kopercie XML): wtedy jej surogat jest już w mapie sesji, a analizy w kontekście tego dokumentu nie ma
+        wpis_dl = sesja.wez(kat, dluzszy)
+        if wpis_dl:
+            baza = wpis_dl[0]
+        else:
+            an2, przyp2 = ctx.analizy[(kat, dluzszy)]
+            baza, _ = _surogat(sesja, kat, an2, przyp2, ctx)
         dane["alias"] = dluzszy
     else:
         # Surogat zgodny z liczbą i rodzajem oryginału, żeby orzeczenie i przydawki w zdaniu dalej się z nim zgadzały:

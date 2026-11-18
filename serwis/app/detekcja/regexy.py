@@ -59,8 +59,9 @@ def _kontekst(tekst: str, start: int, ile: int = 25) -> str:
 RX_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 # Adres e-mail przekłamany przez OCR (pomiar skanów wzorcowych, PLAN 6.2): „@” odczytane jako jeden lub dwa inne znaki
 # („©”, „G”, „Q”, „©E”) między częścią lokalną pisaną małymi literami a domeną z końcówką literową, albo prawdziwe „@”
-# z domeną uciętą na końcu wiersza. Bez tej reguły adres z nazwiskiem zostawał w tekście.
-RX_EMAIL_OCR = re.compile(r"(?<![\w@©®.+-])[a-z0-9][a-z0-9._+-]*[^\sa-z0-9._+-]{1,2}[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?![\w@-])"
+# z domeną uciętą na końcu wiersza. Bez tej reguły adres z nazwiskiem zostawał w tekście. Znaki ścieżek i adresów URL
+# („/”, „:”, „=”) nie są przekłamanym „@”: „13818/schemat.xsd” w schemaLocation pliku XML to nie adres e-mail.
+RX_EMAIL_OCR = re.compile(r"(?<![\w@©®.+/-])[a-z0-9][a-z0-9._+-]*[^\sa-z0-9._+/:\=?&#%-]{1,2}[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?![\w@-])"
                           r"|(?<![\w.+-])[\w.+-]+@[\w-]{3,}(?![\w.@-])")
 RX_IBAN = re.compile(r"(?<![\w])(?:PL\s?)?\d{2}(?:[  ]?\d{4}){6}(?!\d)")
 RX_PESEL = re.compile(r"(?<!\d)\d{11}(?!\d)")

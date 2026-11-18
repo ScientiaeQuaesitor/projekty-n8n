@@ -18,4 +18,11 @@ Sesje na plik: 3 (id plik-0 …). Podmiany: średnio na sesję, pozostałe liczn
 | 05_korespondencja_email.pdf | nie | 36 | 0 | 0 | 0 | 0 | tak | pola metadanych 3, adnotacje 1, łącza 1, obrazy 1 |
 | 06_protokol_zgromadzenia.pdf | nie | 43 | 0 | 0 | 0 | 0 | tak | pola metadanych 3, adnotacje 1, łącza 1, obrazy 1 |
 | 07_akt_notarialny.pdf | nie | 47 | 0 | 0 | 0 | 0 | tak | pola metadanych 3, adnotacje 1, obrazy 1 |
-| **razem** | | 551 | 0 | 0 | 0 | 0 | | |
+| 01_umowa_uslugi.xlsx | nie | 62 | 0 | 0 | 0 | 0 | tak | teksty wspólne przeniesione do komórek 29, usunięte części 1, pola metadanych 1 |
+| 02_wezwanie_do_zaplaty.xlsx | nie | 58 | 0 | 0 | 0 | 0 | tak | teksty wspólne przeniesione do komórek 26, usunięte części 1, pola metadanych 1 |
+| 03_notatka_spotkanie.xlsx | nie | 68 | 0 | 0 | 0 | 0 | tak | teksty wspólne przeniesione do komórek 28, usunięte części 1, pola metadanych 1 |
+| 04_umowa_o_prace.xlsx | nie | 56 | 0 | 0 | 0 | 0 | tak | teksty wspólne przeniesione do komórek 33, usunięte części 1, pola metadanych 1 |
+| 05_korespondencja_email.xlsx | nie | 59 | 0 | 0 | 0 | 0 | tak | teksty wspólne przeniesione do komórek 34, usunięte części 1, pola metadanych 1 |
+| 06_protokol_zgromadzenia.xlsx | nie | 68 | 0 | 0 | 0 | 0 | tak | teksty wspólne przeniesione do komórek 31, usunięte części 1, pola metadanych 1 |
+| 07_akt_notarialny.xlsx | nie | 72 | 0 | 0 | 0 | 0 | tak | teksty wspólne przeniesione do komórek 29, usunięte części 1, pola metadanych 1 |
+| **razem** | | 994 | 0 | 0 | 0 | 0 | | |
